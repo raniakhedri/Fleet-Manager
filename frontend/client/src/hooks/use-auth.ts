@@ -1,8 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
 
+function getApiUrl(path: string) {
+  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
+  return `${baseUrl}${cleanPath}`;
+}
+
 async function fetchUser(): Promise<User | null> {
-  const response = await fetch("/api/auth/user", {
+  const response = await fetch(getApiUrl("/api/auth/user"), {
     credentials: "include",
   });
 
@@ -18,7 +24,7 @@ async function fetchUser(): Promise<User | null> {
 }
 
 async function logout(): Promise<void> {
-  window.location.href = "/api/logout";
+  window.location.href = getApiUrl("/api/logout");
 }
 
 export function useAuth() {

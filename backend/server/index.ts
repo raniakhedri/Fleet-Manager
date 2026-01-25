@@ -18,6 +18,7 @@ declare module "http" {
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://raniakhedri.github.io",
   // Add your Render/Vercel/Netlify frontend URL here
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
@@ -29,9 +30,9 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    // In production, also allow any subdomain of render.com or vercel.app
+    // In production, also allow any subdomain of render.com or vercel.app or github.io
     if (process.env.NODE_ENV === 'production') {
-      if (origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app') || origin.endsWith('.netlify.app')) {
+      if (origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app') || origin.endsWith('.netlify.app') || origin.endsWith('.github.io')) {
         return callback(null, true);
       }
     }

@@ -1,4 +1,4 @@
-import { Router, Switch, Route } from "wouter";
+import { Router as WouterRouter, Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -53,10 +53,10 @@ function ProtectedRoute({
   return <Component />;
 }
 
-function Router() {
-  const base = import.meta.env.PROD ? '/Fleet-Manager/' : '/';
+function AppRouter() {
+  const base = import.meta.env.PROD ? '/Fleet-Manager' : '';
   return (
-    <Router base={base}>
+    <WouterRouter base={base}>
       <Switch>
         <Route path="/" component={LandingPage} />
         <Route path="/login" component={LoginPage} />
@@ -73,7 +73,7 @@ function Router() {
         <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
         <Route component={NotFound} />
       </Switch>
-    </Router>
+    </WouterRouter>
   );
 }
 
@@ -82,7 +82,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <AppRouter />
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Camera, Mail, Phone, CreditCard, Calendar, Save } from "lucide-react";
+import { Camera, Mail, Phone, CreditCard, Calendar, Save, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -24,6 +24,15 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(currentDriver?.phoneNumber || "");
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,6 +65,78 @@ export default function ProfilePage() {
         description: "Échec de la mise à jour du profil",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !currentPassword) {
+      toast({
+        title: "Erreur",
+        description: "Veuillez remplir tous les champs",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Erreur",
+        description: "Le nouveau mot de passe doit contenir au moins 6 caractères",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Erreur",
+        description: "Les mots de passe ne correspondent pas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "https://fleet-manager-backend.onrender.com";
+      
+      const response = await fetch(`${API_BASE}/api/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors du changement de mot de passe");
+      }
+
+      toast({
+        title: "Succès",
+        description: "Mot de passe modifié avec succès",
+      });
+      
+      // Clear fields
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Échec du changement de mot de passe",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -267,6 +348,90 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Password Change Card */}
+        <Card className="border-none shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-600" />
+              Changer le Mot de Passe
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-slate-600">Mot de passe actuel</Label>
+              <div className="relative">
+                <Input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-slate-600">Nouveau mot de passe</Label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">Minimum 6 caractères</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-slate-600">Confirmer le nouveau mot de passe</Label>
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+              )}
+            </div>
+
+            <Button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Lock className="w-4 h-4 mr-2" />
+              {isChangingPassword ? "Modification en cours..." : "Modifier le mot de passe"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </UserLayout>
   );

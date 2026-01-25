@@ -100,9 +100,9 @@ export default function ProfilePage() {
     
     try {
       const token = localStorage.getItem("token");
-      const API_BASE = import.meta.env.VITE_API_URL || "https://fleet-manager-backend.onrender.com";
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
       
-      const response = await fetch(`${API_BASE}/api/change-password`, {
+      const response = await fetch(`${baseUrl}/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

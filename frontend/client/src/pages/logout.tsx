@@ -12,7 +12,7 @@ export default function LogoutPage() {
     
     // Redirect to login
     setTimeout(() => {
-      setLocation("/login");
+      window.location.href = "/Fleet-Manager/login";
     }, 500);
   }, [setLocation]);
 

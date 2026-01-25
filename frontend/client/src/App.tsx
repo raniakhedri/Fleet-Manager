@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Router, Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -54,23 +54,26 @@ function ProtectedRoute({
 }
 
 function Router() {
+  const base = import.meta.env.PROD ? '/Fleet-Manager/' : '/';
   return (
-    <Switch>
-      <Route path="/" component={LandingPage} />
-      <Route path="/login" component={LoginPage} />
-      <Route path="/logout" component={LogoutPage} />
-      <Route path="/api/logout" component={LogoutPage} />
-      <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} adminOnly={true} />} />
-      <Route path="/map" component={() => <ProtectedRoute component={LiveMapPage} adminOnly={true} />} />
-      <Route path="/vehicles" component={() => <ProtectedRoute component={VehiclesPage} adminOnly={true} />} />
-      <Route path="/vehicles/:id" component={() => <ProtectedRoute component={VehicleDetailsPage} adminOnly={true} />} />
-      <Route path="/drivers" component={() => <ProtectedRoute component={DriversPage} adminOnly={true} />} />
-      <Route path="/missions" component={() => <ProtectedRoute component={MissionsPage} />} />
-      <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} adminOnly={true} />} />
-      <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
-      <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
-      <Route component={NotFound} />
-    </Switch>
+    <Router base={base}>
+      <Switch>
+        <Route path="/" component={LandingPage} />
+        <Route path="/login" component={LoginPage} />
+        <Route path="/logout" component={LogoutPage} />
+        <Route path="/api/logout" component={LogoutPage} />
+        <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} adminOnly={true} />} />
+        <Route path="/map" component={() => <ProtectedRoute component={LiveMapPage} adminOnly={true} />} />
+        <Route path="/vehicles" component={() => <ProtectedRoute component={VehiclesPage} adminOnly={true} />} />
+        <Route path="/vehicles/:id" component={() => <ProtectedRoute component={VehicleDetailsPage} adminOnly={true} />} />
+        <Route path="/drivers" component={() => <ProtectedRoute component={DriversPage} adminOnly={true} />} />
+        <Route path="/missions" component={() => <ProtectedRoute component={MissionsPage} />} />
+        <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} adminOnly={true} />} />
+        <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
+        <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
+        <Route component={NotFound} />
+      </Switch>
+    </Router>
   );
 }
 

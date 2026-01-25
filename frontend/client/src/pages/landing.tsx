@@ -1,8 +1,11 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Map, Smartphone, BarChart3, ArrowRight } from "lucide-react";
+import { ShieldCheck, Map, Smartphone, BarChart3, ArrowRight, Download, Check } from "lucide-react";
+import { usePWAInstall } from "@/hooks/use-pwa-install";
 
 export default function LandingPage() {
+  const { isInstallable, isInstalled, installApp } = usePWAInstall();
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* Navbar */}
@@ -14,8 +17,27 @@ export default function LandingPage() {
             </div>
             <span className="font-display font-bold text-xl tracking-tight text-slate-900">FleetGuard</span>
           </div>
-          <div className="flex items-center gap-4">
-             <Link href="/login">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* PWA Install Button */}
+            {isInstalled ? (
+              <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 bg-emerald-50" disabled>
+                <Check className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Installée</span>
+              </Button>
+            ) : isInstallable ? (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={installApp}
+                className="text-primary border-primary/30 hover:bg-primary/10"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Installer l'App</span>
+                <span className="sm:hidden">App</span>
+              </Button>
+            ) : null}
+            
+            <Link href="/login">
               <Button>Connexion</Button>
             </Link>
           </div>

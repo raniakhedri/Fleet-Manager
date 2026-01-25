@@ -10,8 +10,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Disable SSL certificate verification for Render's PostgreSQL
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
 });
 export const db = drizzle(pool, { schema });

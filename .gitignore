@@ -7,3 +7,6 @@ vite.config.ts.*
 .env
 .env.backend
 .env.frontend
+.env.production
+.env.local
+.env*.local

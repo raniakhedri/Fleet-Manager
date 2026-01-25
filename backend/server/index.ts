@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -13,9 +14,29 @@ declare module "http" {
   }
 }
 
-// Enable CORS for frontend
+// Enable CORS for frontend - add your production frontend URL here
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  // Add your Render/Vercel/Netlify frontend URL here
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
 app.use(cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // In production, also allow any subdomain of render.com or vercel.app
+    if (process.env.NODE_ENV === 'production') {
+      if (origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app') || origin.endsWith('.netlify.app')) {
+        return callback(null, true);
+      }
+    }
+    return callback(null, false);
+  },
   credentials: true,
 }));
 

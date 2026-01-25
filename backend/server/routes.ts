@@ -167,19 +167,26 @@ export async function registerRoutes(
       });
       
       // Send credentials email
+      let emailSent = false;
       try {
         await sendDriverCredentialsEmail(
           input.email,
           `${input.firstName} ${input.lastName}`,
           password
         );
+        emailSent = true;
         console.log(`[DRIVER] Created driver and sent credentials to ${input.email}`);
       } catch (emailError) {
         console.error('[DRIVER] Failed to send email:', emailError);
         // Continue anyway - driver is created, admin can manually share credentials
       }
       
-      res.status(201).json(driver);
+      // Return driver with temporary password if email failed (for admin to share manually)
+      res.status(201).json({
+        ...driver,
+        temporaryPassword: emailSent ? undefined : password,
+        emailSent
+      });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });

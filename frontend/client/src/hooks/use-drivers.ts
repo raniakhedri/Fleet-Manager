@@ -63,18 +63,28 @@ export function useCreateDriver() {
         const error = await res.json();
         throw new Error(error.message || "Failed to create driver");
       }
-      return api.drivers.create.responses[201].parse(await res.json());
+      return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [api.drivers.list.path] });
-      toast({
-        title: "Success",
-        description: "Driver added successfully",
-      });
+      
+      // Check if email was sent or if we need to show the password
+      if (data.temporaryPassword) {
+        toast({
+          title: "Chauffeur créé",
+          description: `Email non envoyé. Mot de passe temporaire : ${data.temporaryPassword}`,
+          duration: 30000, // Show for 30 seconds
+        });
+      } else {
+        toast({
+          title: "Succès",
+          description: "Chauffeur ajouté. Un email avec les identifiants a été envoyé.",
+        });
+      }
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: "Erreur",
         description: error.message,
         variant: "destructive",
       });

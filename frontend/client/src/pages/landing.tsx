@@ -91,9 +91,9 @@ export default function LandingPage() {
             <div className="relative rounded-2xl bg-white shadow-2xl border-4 border-gold-200/50 p-4 transform hover:rotate-0 transition-transform duration-500 -rotate-1">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-cream-100 to-cream-200">
                 <img 
-                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2070" 
+                  src="/favicon.png" 
                   alt="Aperçu du Tableau de Bord" 
-                  className="object-cover w-full h-full opacity-90"
+                  className="object-contain w-full h-full p-16 opacity-90"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-crimson-900/20 to-transparent" />
                 {/* Overlay stats */}

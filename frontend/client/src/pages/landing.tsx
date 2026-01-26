@@ -97,16 +97,7 @@ export default function LandingPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-crimson-900/20 to-transparent" />
                 {/* Overlay stats */}
-                <div className="absolute bottom-4 left-4 right-4 flex gap-3">
-                  <div className="bg-white/95 backdrop-blur rounded-lg px-4 py-2 shadow-lg">
-                    <p className="text-xs text-gray-500">Véhicules actifs</p>
-                    <p className="text-lg font-bold text-crimson-600">24</p>
-                  </div>
-                  <div className="bg-white/95 backdrop-blur rounded-lg px-4 py-2 shadow-lg">
-                    <p className="text-xs text-gray-500">En mission</p>
-                    <p className="text-lg font-bold text-gold-600">18</p>
-                  </div>
-                </div>
+               
               </div>
             </div>
           </div>

@@ -1,13 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { useUser } from "@/hooks/use-user";
 import { 
-  ShieldCheck,
+  Shield,
   ClipboardList,
   User,
   LogOut,
   Menu,
   X,
-  Home
+  Home,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,16 +32,19 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-cream-100 to-cream-200 font-sans">
       {/* Top Navbar - Similar to Landing Page */}
-      <nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+      <nav className="fixed w-full z-50 bg-cream-50/90 backdrop-blur-md border-b border-gold-200/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="bg-primary p-1.5 rounded-lg">
-              <ShieldCheck className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="bg-gradient-to-br from-crimson-500 to-crimson-700 p-2 rounded-full shadow-lg shadow-crimson-500/30">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-gold-500 rounded-full"></div>
             </div>
-            <span className="font-display font-bold text-xl tracking-tight text-slate-900">FleetGuard</span>
+            <span className="font-display font-bold text-xl tracking-tight bg-gradient-to-r from-crimson-600 to-crimson-800 bg-clip-text text-transparent">FleetGuard</span>
           </div>
 
           {/* Desktop Navigation */}
@@ -54,8 +58,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                     className={cn(
                       "gap-2 rounded-full px-5",
                       isActive 
-                        ? "bg-primary text-white shadow-lg shadow-primary/20" 
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                        ? "bg-gradient-to-r from-crimson-500 to-crimson-600 text-white shadow-lg shadow-crimson-500/25" 
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gold-50"
                     )}
                   >
                     <item.icon className="w-4 h-4" />
@@ -69,8 +73,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
           {/* User Info & Logout - Desktop */}
           <div className="hidden md:flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
-                <span className="font-bold text-primary text-sm">{user?.firstName?.[0] || "U"}</span>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-600 flex items-center justify-center border-2 border-gold-300/50 shadow-lg">
+                <span className="font-bold text-white text-sm">{user?.firstName?.[0] || "U"}</span>
               </div>
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-900">
@@ -82,7 +86,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
             <Button 
               variant="outline" 
               size="sm"
-              className="gap-2 rounded-full border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="gap-2 rounded-full border-crimson-200 text-crimson-600 hover:text-white hover:bg-crimson-500 hover:border-crimson-500"
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4" />
@@ -103,12 +107,12 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
 
         {/* Mobile Menu Dropdown */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-slate-200 shadow-lg">
+          <div className="md:hidden bg-cream-50 border-t border-gold-200/50 shadow-lg">
             <div className="px-4 py-4 space-y-2">
               {/* User Info - Mobile */}
-              <div className="flex items-center gap-3 pb-4 mb-2 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
-                  <span className="font-bold text-primary">{user?.firstName?.[0] || "U"}</span>
+              <div className="flex items-center gap-3 pb-4 mb-2 border-b border-gold-100">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-600 flex items-center justify-center border-2 border-gold-300/50">
+                  <span className="font-bold text-white">{user?.firstName?.[0] || "U"}</span>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-900">
@@ -127,8 +131,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
                       className={cn(
                         "flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
                         isActive 
-                          ? "bg-primary text-white" 
-                          : "text-slate-600 hover:bg-slate-100"
+                          ? "bg-gradient-to-r from-crimson-500 to-crimson-600 text-white" 
+                          : "text-gray-600 hover:bg-gold-50"
                       )}
                     >
                       <item.icon className="w-5 h-5" />
@@ -141,7 +145,7 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
               {/* Logout - Mobile */}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 w-full text-left mt-2"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-crimson-600 hover:bg-crimson-50 w-full text-left mt-2"
               >
                 <LogOut className="w-5 h-5" />
                 Déconnexion
@@ -159,13 +163,20 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       {/* Simple Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-8">
+      <footer className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-gray-400 py-8">
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
-          <div className="flex items-center gap-2 mb-4 md:mb-0">
-            <ShieldCheck className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-3 mb-4 md:mb-0">
+            <div className="bg-gradient-to-br from-crimson-500 to-crimson-600 p-1.5 rounded-full">
+              <Shield className="w-4 h-4 text-white" />
+            </div>
             <span className="font-display font-bold text-white">FleetGuard</span>
           </div>
-          <p className="text-sm">© 2026 FleetGuard Inc. Tous droits réservés.</p>
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="w-3 h-3 text-gold-500 fill-gold-500" />
+            ))}
+          </div>
+          <p className="text-sm mt-4 md:mt-0">© 2026 FleetGuard. Tous droits réservés.</p>
         </div>
       </footer>
     </div>

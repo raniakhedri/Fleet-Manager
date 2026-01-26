@@ -37,7 +37,7 @@ export default function DriverDashboard() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
-      pending: "bg-blue-500/15 text-blue-700 border-0",
+      pending: "bg-gold-500/15 text-gold-700 border-0",
       in_progress: "bg-amber-500/15 text-amber-700 border-0",
       completed: "bg-emerald-500/15 text-emerald-700 border-0",
       cancelled: "bg-rose-500/15 text-rose-700 border-0",
@@ -61,11 +61,11 @@ export default function DriverDashboard() {
     <UserLayout>
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-crimson-600 to-crimson-800 rounded-xl p-6 text-white shadow-lg">
           <h1 className="text-3xl font-bold mb-2">
             Bienvenue, {user?.firstName} !
           </h1>
-          <p className="text-blue-100">
+          <p className="text-crimson-100">
             Vous avez {pendingMissions.length} mission{pendingMissions.length !== 1 ? 's' : ''} en attente
             {inProgressMissions.length > 0 && ` et ${inProgressMissions.length} en cours`}
           </p>
@@ -73,15 +73,15 @@ export default function DriverDashboard() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-none shadow-md bg-gradient-to-br from-blue-50 to-white">
+          <Card className="border-none shadow-md bg-gradient-to-br from-gold-50 to-white">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-slate-600">En Attente</CardTitle>
-                <Clock className="w-5 h-5 text-blue-600" />
+                <Clock className="w-5 h-5 text-gold-600" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{pendingMissions.length}</div>
+              <div className="text-3xl font-bold text-gold-600">{pendingMissions.length}</div>
               <p className="text-xs text-slate-500 mt-1">À démarrer</p>
             </CardContent>
           </Card>
@@ -203,8 +203,8 @@ export default function DriverDashboard() {
                         </div>
 
                         {mission.scheduledStart && (
-                          <div className="flex items-center gap-2 text-sm text-slate-600 bg-blue-50 p-2 rounded">
-                            <Calendar className="w-4 h-4 text-blue-600" />
+                          <div className="flex items-center gap-2 text-sm text-slate-600 bg-gold-50 p-2 rounded">
+                            <Calendar className="w-4 h-4 text-gold-600" />
                             <span>Début prévu : {format(new Date(mission.scheduledStart), "PPp")}</span>
                           </div>
                         )}

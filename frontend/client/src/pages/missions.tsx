@@ -60,7 +60,7 @@ export default function MissionsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
-      pending: "bg-blue-500/15 text-blue-700 hover:bg-blue-500/25",
+      pending: "bg-gold-500/15 text-gold-700 hover:bg-gold-500/25",
       in_progress: "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25",
       completed: "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25",
       cancelled: "bg-rose-500/15 text-rose-700 hover:bg-rose-500/25",
@@ -84,7 +84,7 @@ export default function MissionsPage() {
   const getPriorityBadge = (priority: string) => {
     const variants: Record<string, string> = {
       low: "bg-slate-100 text-slate-600",
-      normal: "bg-blue-100 text-blue-600",
+      normal: "bg-gold-100 text-gold-600",
       high: "bg-orange-100 text-orange-600",
       urgent: "bg-red-100 text-red-600",
     };

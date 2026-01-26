@@ -189,13 +189,13 @@ export default function ProfilePage() {
                 <div className="relative">
                   <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
                     <AvatarImage src={profileImage || undefined} alt={currentDriver.firstName} />
-                    <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-blue-500 to-blue-700 text-white">
+                    <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-crimson-500 to-crimson-700 text-white">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                   <label 
                     htmlFor="profile-image" 
-                    className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors shadow-lg"
+                    className="absolute bottom-0 right-0 bg-crimson-600 text-white p-2 rounded-full cursor-pointer hover:bg-crimson-700 transition-colors shadow-lg"
                   >
                     <Camera className="w-4 h-4" />
                     <input 
@@ -272,7 +272,7 @@ export default function ProfilePage() {
 
                 <div className="flex gap-3 pt-4">
                   {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700">
                       Modifier le Profil
                     </Button>
                   ) : (
@@ -335,7 +335,7 @@ export default function ProfilePage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between py-2 border-b">
                 <span className="text-slate-600">Total Missions</span>
-                <span className="font-bold text-blue-600">0</span>
+                <span className="font-bold text-crimson-600">0</span>
               </div>
               <div className="flex justify-between py-2 border-b">
                 <span className="text-slate-600">Terminées</span>
@@ -353,7 +353,7 @@ export default function ProfilePage() {
         <Card className="border-none shadow-lg">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Lock className="w-5 h-5 text-blue-600" />
+              <Lock className="w-5 h-5 text-crimson-600" />
               Changer le Mot de Passe
             </CardTitle>
           </CardHeader>
@@ -425,7 +425,7 @@ export default function ProfilePage() {
             <Button
               onClick={handleChangePassword}
               disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700"
             >
               <Lock className="w-4 h-4 mr-2" />
               {isChangingPassword ? "Modification en cours..." : "Modifier le mot de passe"}

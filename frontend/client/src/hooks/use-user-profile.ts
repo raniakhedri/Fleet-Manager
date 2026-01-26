@@ -17,8 +17,21 @@ function getApiUrl(path: string) {
   return `${baseUrl}${cleanPath}`;
 }
 
+// Extended profile type that includes user data
+export interface UserProfile {
+  id: number | null;
+  userId: string;
+  role: string;
+  phoneNumber: string | null;
+  driverId: number | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+}
+
 export function useUserProfile() {
-  return useQuery({
+  return useQuery<UserProfile | null>({
     queryKey: [api.users.me.path],
     queryFn: async () => {
       const res = await fetch(getApiUrl(api.users.me.path), { 
@@ -26,8 +39,7 @@ export function useUserProfile() {
         credentials: "include" 
       });
       if (!res.ok) throw new Error("Failed to fetch profile");
-      // Could be null if no profile exists yet
-      return api.users.me.responses[200].parse(await res.json());
+      return await res.json();
     },
   });
 }

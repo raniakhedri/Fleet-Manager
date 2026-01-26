@@ -21,8 +21,28 @@ export async function registerRoutes(
   // === User Profile Routes ===
   app.get(api.users.me.path, isAuthenticatedJWT, async (req: any, res) => {
     const userId = req.user.userId;
+    
+    // Get user from users table
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    // Get additional profile data from userRoles table
     const role = await storage.getUserRole(userId);
-    res.json(role || null);
+    
+    // Combine data from both tables
+    const profileData = {
+      id: role?.id || null,
+      userId: userId,
+      role: user?.role || role?.role || 'user',
+      phoneNumber: role?.phoneNumber || null,
+      driverId: role?.driverId || null,
+      // Include user data
+      email: user?.email || null,
+      firstName: user?.firstName || null,
+      lastName: user?.lastName || null,
+      profileImageUrl: user?.profileImageUrl || null,
+    };
+    
+    res.json(profileData);
   });
 
   app.post(api.users.updateProfile.path, isAuthenticatedJWT, async (req: any, res) => {

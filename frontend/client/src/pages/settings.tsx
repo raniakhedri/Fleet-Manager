@@ -16,7 +16,7 @@ export default function SettingsPage() {
 
   const form = useForm({
     defaultValues: {
-      role: "driver",
+      role: "",
       phoneNumber: "",
     }
   });
@@ -24,15 +24,40 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) {
       form.reset({
-        role: profile.role,
+        role: profile.role || "user",
         phoneNumber: profile.phoneNumber || "",
       });
     }
   }, [profile, form]);
 
   const onSubmit = (data: any) => {
-    updateProfile.mutate(data);
+    updateProfile.mutate({
+      role: data.role,
+      phoneNumber: data.phoneNumber,
+    });
   };
+
+  // Get display name from profile or user
+  const displayName = profile?.firstName && profile?.lastName 
+    ? `${profile.firstName} ${profile.lastName}` 
+    : user?.firstName && user?.lastName 
+      ? `${user.firstName} ${user.lastName}` 
+      : profile?.email || user?.email || "Utilisateur";
+  
+  const displayEmail = profile?.email || user?.email || "";
+  const displayRole = profile?.role === "admin" ? "Administrateur" : profile?.role === "driver" ? "Chauffeur" : profile?.role || "Utilisateur";
+  const profileImage = profile?.profileImageUrl || user?.profileImageUrl;
+  const initials = (profile?.firstName?.[0] || user?.firstName?.[0] || displayEmail[0] || "U").toUpperCase();
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-crimson-600" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -46,16 +71,16 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center gap-4">
-               {user?.profileImageUrl ? (
-                <img src={user.profileImageUrl} alt="Profile" className="w-16 h-16 rounded-full border-2 border-slate-100" />
+               {profileImage ? (
+                <img src={profileImage} alt="Profile" className="w-16 h-16 rounded-full border-2 border-slate-100" />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-2xl">
-                  {user?.firstName?.[0]}
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-700 flex items-center justify-center text-white font-bold text-2xl">
+                  {initials}
                 </div>
               )}
               <div>
-                <h3 className="font-bold text-lg">{user?.firstName} {user?.lastName}</h3>
-                <p className="text-slate-500">{user?.email}</p>
+                <h3 className="font-bold text-lg">{displayName}</h3>
+                <p className="text-slate-500">{displayEmail}</p>
               </div>
             </div>
             
@@ -64,7 +89,7 @@ export default function SettingsPage() {
                 <Label htmlFor="role">Rôle</Label>
                 <Input 
                   id="role" 
-                  {...form.register("role")} 
+                  value={displayRole}
                   disabled 
                   className="bg-slate-50"
                 />
@@ -75,13 +100,13 @@ export default function SettingsPage() {
                 <Label htmlFor="phone">Numéro de Téléphone</Label>
                 <Input 
                   id="phone" 
-                  placeholder="+33 1 23 45 67 89" 
+                  placeholder="+216 XX XXX XXX" 
                   {...form.register("phoneNumber")} 
                 />
               </div>
 
               <div className="pt-2">
-                <Button type="submit" disabled={updateProfile.isPending}>
+                <Button type="submit" disabled={updateProfile.isPending} className="bg-gradient-to-r from-crimson-600 to-crimson-700 hover:from-crimson-700 hover:to-crimson-800">
                   {updateProfile.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Enregistrer les Modifications
                 </Button>

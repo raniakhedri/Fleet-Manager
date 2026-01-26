@@ -190,7 +190,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
                   <FormControl>
                     <Input 
                       type="tel" 
-                      placeholder="12345678" 
+                      placeholder="XX XXX XXX" 
                       {...field} 
                       autoComplete="tel"
                       maxLength={8}

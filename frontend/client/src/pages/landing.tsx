@@ -89,11 +89,11 @@ export default function LandingPage() {
             {/* Decorative gold border */}
             <div className="absolute inset-0 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 rounded-3xl transform rotate-1 opacity-60"></div>
             <div className="relative rounded-2xl bg-white shadow-2xl border-4 border-gold-200/50 p-4 transform hover:rotate-0 transition-transform duration-500 -rotate-1">
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-cream-100 to-cream-200">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-cream-100 to-cream-200 flex items-center justify-center">
                 <img 
-                  src="/favicon.png" 
-                  alt="Aperçu du Tableau de Bord" 
-                  className="object-contain w-full h-full p-16 opacity-90"
+                  src="/Fleet-Manager/emblem.png" 
+                  alt="Emblème FleetGuard" 
+                  className="object-contain h-64 md:h-80 drop-shadow-2xl"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-crimson-900/20 to-transparent" />
                 {/* Overlay stats */}

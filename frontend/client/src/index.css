@@ -9,72 +9,85 @@
   --font-sans: 'Inter', sans-serif;
   --font-display: 'Outfit', sans-serif;
 
-  /* Professional Fleet Palette - Slate & Indigo */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  /* Tunisian Military Palette - Red, Gold & Cream */
+  --background: 40 33% 96%;
+  --foreground: 0 0% 15%;
   
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card: 40 40% 99%;
+  --card-foreground: 0 0% 15%;
   
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover: 40 40% 99%;
+  --popover-foreground: 0 0% 15%;
   
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 40% 98%;
+  /* Primary: Deep Crimson Red */
+  --primary: 350 75% 45%;
+  --primary-foreground: 40 33% 98%;
   
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
+  /* Secondary: Rich Gold */
+  --secondary: 43 74% 49%;
+  --secondary-foreground: 0 0% 10%;
   
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 40 20% 92%;
+  --muted-foreground: 0 0% 40%;
   
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222 47% 11.2%;
+  /* Accent: Gold */
+  --accent: 43 74% 49%;
+  --accent-foreground: 0 0% 10%;
   
   --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 40 33% 98%;
 
   --success: 142 76% 36%;
   --warning: 38 92% 50%;
   
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221 83% 53%;
+  --border: 40 20% 88%;
+  --input: 40 20% 88%;
+  --ring: 350 75% 45%;
   
   --radius: 0.75rem;
+
+  /* Custom brand colors */
+  --gold: 43 74% 49%;
+  --gold-light: 43 70% 65%;
+  --gold-dark: 43 80% 35%;
+  --crimson: 350 75% 45%;
+  --crimson-light: 350 70% 55%;
+  --crimson-dark: 350 80% 35%;
+  --cream: 40 33% 96%;
+  --cream-light: 40 40% 99%;
 }
 
 .dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  --background: 0 0% 10%;
+  --foreground: 40 33% 96%;
   
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
+  --card: 0 0% 12%;
+  --card-foreground: 40 33% 96%;
   
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 0 0% 12%;
+  --popover-foreground: 40 33% 96%;
   
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 11%;
+  --primary: 350 70% 50%;
+  --primary-foreground: 40 33% 98%;
   
-  --secondary: 217 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 43 70% 45%;
+  --secondary-foreground: 0 0% 98%;
   
-  --muted: 217 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 0 0% 18%;
+  --muted-foreground: 40 15% 65%;
   
-  --accent: 217 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 43 70% 45%;
+  --accent-foreground: 0 0% 98%;
   
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive-foreground: 40 33% 98%;
 
   --success: 142 70% 50%;
   --warning: 48 96% 53%;
   
-  --border: 217 32.6% 17.5%;
-  --input: 217 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 350 70% 50%;
 }
 
 @layer base {

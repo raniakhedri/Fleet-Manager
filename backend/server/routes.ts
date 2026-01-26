@@ -7,9 +7,75 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { db } from "./db";
-import { users, userRoles } from "@shared/schema";
-import { eq } from "drizzle-orm";
-import { generateRandomPassword, sendDriverCredentialsEmail } from "./email-service";
+import { users, userRoles, vehicles, drivers } from "@shared/schema";
+import { eq, lte, gte, and } from "drizzle-orm";
+import { generateRandomPassword, sendDriverCredentialsEmail, sendLicenseExpiryWarningToDriver, sendLicenseExpiryNotificationToAdmin } from "./email-service";
+
+// Function to check for expiring licenses and send notifications
+async function checkExpiringLicenses() {
+  console.log('[LICENSE CHECK] Running license expiry check...');
+  
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check licenses expiring within 10 days
+    const tenDaysFromNow = new Date(today);
+    tenDaysFromNow.setDate(tenDaysFromNow.getDate() + 10);
+    
+    // Get all drivers with license expiring within 10 days or already expired
+    const expiringDrivers = await db.select().from(drivers)
+      .where(lte(drivers.licenseExpiry, tenDaysFromNow));
+    
+    // Get admin emails for notifications
+    const adminUsers = await db.select().from(users).where(eq(users.role, 'admin'));
+    const adminEmails = adminUsers.map(u => u.email).filter(Boolean) as string[];
+    
+    for (const driver of expiringDrivers) {
+      if (!driver.licenseExpiry) continue;
+      
+      const expiryDate = new Date(driver.licenseExpiry);
+      const timeDiff = expiryDate.getTime() - today.getTime();
+      const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      
+      // Send notification to driver
+      await sendLicenseExpiryWarningToDriver(
+        driver.email,
+        `${driver.firstName} ${driver.lastName}`,
+        expiryDate,
+        daysRemaining
+      );
+      
+      // Send notification to all admins
+      for (const adminEmail of adminEmails) {
+        await sendLicenseExpiryNotificationToAdmin(
+          adminEmail,
+          `${driver.firstName} ${driver.lastName}`,
+          driver.email,
+          expiryDate,
+          daysRemaining
+        );
+      }
+      
+      console.log(`[LICENSE CHECK] Sent notifications for ${driver.firstName} ${driver.lastName} (${daysRemaining} days remaining)`);
+    }
+    
+    console.log(`[LICENSE CHECK] Completed. Checked ${expiringDrivers.length} expiring licenses.`);
+  } catch (error) {
+    console.error('[LICENSE CHECK] Error:', error);
+  }
+}
+
+// Start the license check scheduler (runs daily)
+function startLicenseCheckScheduler() {
+  // Run immediately on startup
+  setTimeout(() => checkExpiringLicenses(), 5000); // 5 second delay after startup
+  
+  // Then run every 24 hours
+  setInterval(() => checkExpiringLicenses(), 24 * 60 * 60 * 1000);
+  
+  console.log('[LICENSE CHECK] Scheduler started - will check daily');
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -17,6 +83,9 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Register JWT-based auth routes (signup/login)
   registerJWTAuthRoutes(app);
+  
+  // Start license expiry check scheduler
+  startLicenseCheckScheduler();
 
   // === User Profile Routes ===
   app.get(api.users.me.path, isAuthenticatedJWT, async (req: any, res) => {
@@ -53,6 +122,50 @@ export async function registerRoutes(
         res.json(role);
     } catch (err) {
         res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  // === License Expiry Check API (Admin only) ===
+  app.get("/api/drivers/expiring-licenses", isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tenDaysFromNow = new Date(today);
+      tenDaysFromNow.setDate(tenDaysFromNow.getDate() + 10);
+      
+      // Get all drivers with license expiring within 10 days or already expired
+      const expiringDrivers = await db.select().from(drivers)
+        .where(lte(drivers.licenseExpiry, tenDaysFromNow));
+      
+      const result = expiringDrivers.map(driver => {
+        const expiryDate = driver.licenseExpiry ? new Date(driver.licenseExpiry) : null;
+        const daysRemaining = expiryDate 
+          ? Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        
+        return {
+          ...driver,
+          daysRemaining,
+          isExpired: daysRemaining !== null && daysRemaining <= 0,
+        };
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error('[API] Error fetching expiring licenses:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Trigger license check manually (Admin only)
+  app.post("/api/drivers/check-licenses", isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+    try {
+      await checkExpiringLicenses();
+      res.json({ message: "License check completed and notifications sent" });
+    } catch (error) {
+      console.error('[API] Error running license check:', error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
@@ -186,6 +299,13 @@ export async function registerRoutes(
         userId: authUser.id,
       });
       
+      // If a vehicle is assigned, update the vehicle's currentDriverId
+      if (input.assignedVehicleId) {
+        await db.update(vehicles)
+          .set({ currentDriverId: driver.id })
+          .where(eq(vehicles.id, input.assignedVehicleId));
+      }
+      
       // Send credentials email
       let emailSent = false;
       try {
@@ -222,8 +342,37 @@ export async function registerRoutes(
   app.put(api.drivers.update.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
     try {
       const input = api.drivers.update.input.parse(req.body);
-      const driver = await storage.updateDriver(Number(req.params.id), input);
+      const driverId = Number(req.params.id);
+      
+      // Get current driver to check previous vehicle assignment
+      const currentDriver = await storage.getDriver(driverId);
+      if (!currentDriver) return res.status(404).json({ message: "Driver not found" });
+      
+      // Update the driver
+      const driver = await storage.updateDriver(driverId, input);
       if (!driver) return res.status(404).json({ message: "Driver not found" });
+      
+      // Handle vehicle assignment changes
+      const oldVehicleId = currentDriver.assignedVehicleId;
+      const newVehicleId = input.assignedVehicleId;
+      
+      // If vehicle assignment changed
+      if (oldVehicleId !== newVehicleId) {
+        // Remove driver from old vehicle
+        if (oldVehicleId) {
+          await db.update(vehicles)
+            .set({ currentDriverId: null })
+            .where(eq(vehicles.id, oldVehicleId));
+        }
+        
+        // Assign driver to new vehicle
+        if (newVehicleId) {
+          await db.update(vehicles)
+            .set({ currentDriverId: driverId })
+            .where(eq(vehicles.id, newVehicleId));
+        }
+      }
+      
       res.json(driver);
     } catch (err) {
       res.status(400).json({ message: "Invalid input" });
@@ -231,7 +380,18 @@ export async function registerRoutes(
   });
 
   app.delete(api.drivers.delete.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
-    await storage.deleteDriver(Number(req.params.id));
+    const driverId = Number(req.params.id);
+    
+    // Get driver to check vehicle assignment before deletion
+    const driver = await storage.getDriver(driverId);
+    if (driver?.assignedVehicleId) {
+      // Remove driver from assigned vehicle
+      await db.update(vehicles)
+        .set({ currentDriverId: null })
+        .where(eq(vehicles.id, driver.assignedVehicleId));
+    }
+    
+    await storage.deleteDriver(driverId);
     res.status(204).send();
   });
 

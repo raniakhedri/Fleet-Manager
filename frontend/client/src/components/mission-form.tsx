@@ -98,7 +98,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
         driverId: data.driverId,
         title: data.title,
         endLocation: data.endLocation,
-        status: data.status,
+        status: isEditing ? data.status : "pending", // Default to pending for new missions, admin can't change status
         priority: data.priority,
       };
 
@@ -141,9 +141,9 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Titre de la Mission</FormLabel>
+                  <FormLabel>Titre de la Mission *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Livraison à Paris" {...field} />
+                    <Input placeholder="Livraison à Sousse" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -240,55 +240,42 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priorité</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner la priorité" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="low">Basse</SelectItem>
-                        <SelectItem value="normal">Normale</SelectItem>
-                        <SelectItem value="high">Haute</SelectItem>
-                        <SelectItem value="urgent">Urgente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priorité</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner la priorité" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="low">Basse</SelectItem>
+                      <SelectItem value="normal">Normale</SelectItem>
+                      <SelectItem value="high">Haute</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Statut</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner le statut" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="pending">En Attente</SelectItem>
-                        <SelectItem value="in_progress">En Cours</SelectItem>
-                        <SelectItem value="completed">Terminée</SelectItem>
-                        <SelectItem value="cancelled">Annulée</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Status is managed by the driver only - not shown in admin form */}
+            {isEditing && (
+              <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
+                <p><strong>Note:</strong> Le statut de la mission ne peut être modifié que par le chauffeur assigné.</p>
+                <p className="mt-1">Statut actuel: <span className="font-medium">{
+                  mission?.status === "pending" ? "En Attente" :
+                  mission?.status === "in_progress" ? "En Cours" :
+                  mission?.status === "completed" ? "Terminée" :
+                  mission?.status === "cancelled" ? "Annulée" : mission?.status
+                }</span></p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -352,7 +339,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
               </Button>
               <Button
                 type="submit"
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-crimson-600 to-crimson-700 hover:from-crimson-700 hover:to-crimson-800"
                 disabled={isPending}
               >
                 {isPending ? "Enregistrement..." : isEditing ? "Mettre à Jour la Mission" : "Créer la Mission"}

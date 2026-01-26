@@ -1,18 +1,34 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertDriverSchema } from "@shared/schema";
 import { useCreateDriver, useUpdateDriver } from "@/hooks/use-drivers";
+import { useVehicles } from "@/hooks/use-vehicles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Car, AlertTriangle } from "lucide-react";
 import { z } from "zod";
 
-// Local form type to avoid complex type inference issues
-type DriverFormData = z.infer<typeof insertDriverSchema>;
+// Custom form schema with strict validation
+const driverFormSchema = z.object({
+  firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères").max(50, "Prénom trop long"),
+  lastName: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(50, "Nom trop long"),
+  email: z.string().email("Adresse email invalide"),
+  phoneNumber: z.string().regex(/^\d{8}$/, "Le numéro de téléphone doit contenir exactement 8 chiffres"),
+  licenseNumber: z.string().min(5, "Numéro de permis doit contenir au moins 5 caractères").max(30, "Numéro de permis trop long"),
+  licenseExpiry: z.string().min(1, "La date d'expiration du permis est requise").refine((date) => {
+    const expiryDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return expiryDate >= today;
+  }, "Le permis ne peut pas être expiré"),
+  status: z.enum(["active", "inactive", "on_leave"]).default("active"),
+  assignedVehicleId: z.number({ required_error: "Le véhicule assigné est requis" }).min(1, "Vous devez assigner un véhicule"),
+});
+
+type DriverFormData = z.infer<typeof driverFormSchema>;
 
 type Driver = {
   id: number;
@@ -35,20 +51,27 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
   const [open, setOpen] = useState(false);
   const createMutation = useCreateDriver();
   const updateMutation = useUpdateDriver();
+  const { data: vehicles = [] } = useVehicles();
+
+  // Filter available vehicles (active and not already assigned to another driver)
+  const availableVehicles = vehicles.filter(v => 
+    v.status === "active" || v.status === "maintenance" || 
+    (driver && v.currentDriverId === driver.id) // Include current driver's vehicle when editing
+  );
 
   const isEditing = !!driver;
 
   const form = useForm<DriverFormData>({
-    resolver: zodResolver(insertDriverSchema) as any,
+    resolver: zodResolver(driverFormSchema),
     defaultValues: driver ? {
       firstName: driver.firstName,
       lastName: driver.lastName,
       email: driver.email,
       phoneNumber: driver.phoneNumber,
       licenseNumber: driver.licenseNumber,
-      licenseExpiry: driver.licenseExpiry ? new Date(driver.licenseExpiry).toISOString().split('T')[0] : null,
+      licenseExpiry: driver.licenseExpiry ? new Date(driver.licenseExpiry).toISOString().split('T')[0] : "",
       status: driver.status as "active" | "inactive" | "on_leave",
-      assignedVehicleId: driver.assignedVehicleId || null,
+      assignedVehicleId: driver.assignedVehicleId || undefined,
     } : {
       firstName: "",
       lastName: "",
@@ -56,17 +79,22 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
       phoneNumber: "",
       licenseNumber: "",
       status: "active",
-      licenseExpiry: null,
-      assignedVehicleId: null,
+      licenseExpiry: "",
+      assignedVehicleId: undefined,
     },
   });
 
   const onSubmit = async (data: DriverFormData) => {
     try {
+      const submitData = {
+        ...data,
+        licenseExpiry: data.licenseExpiry || null,
+      };
+      
       if (isEditing && driver) {
-        await updateMutation.mutateAsync({ id: driver.id, ...data });
+        await updateMutation.mutateAsync({ id: driver.id, ...submitData });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(submitData);
       }
       setOpen(false);
       if (!isEditing) form.reset();
@@ -81,7 +109,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200">
+          <Button className="gap-2 bg-gradient-to-r from-crimson-600 to-crimson-700 hover:from-crimson-700 hover:to-crimson-800 shadow-lg shadow-crimson-200">
             <Plus className="w-4 h-4" /> Ajouter un Chauffeur
           </Button>
         )}
@@ -158,16 +186,21 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
               name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Téléphone</FormLabel>
+                  <FormLabel>Téléphone *</FormLabel>
                   <FormControl>
                     <Input 
                       type="tel" 
-                      placeholder="+33 6 12 34 56 78" 
+                      placeholder="12345678" 
                       {...field} 
                       autoComplete="tel"
-                      minLength={8}
+                      maxLength={8}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        field.onChange(value);
+                      }}
                     />
                   </FormControl>
+                  <p className="text-xs text-slate-500">8 chiffres requis</p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -222,20 +255,64 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
               name="licenseExpiry"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Date d'Expiration du Permis (Optionnel)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Date d'Expiration du Permis *
+                    {field.value && new Date(field.value) < new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) && (
+                      <AlertTriangle className="w-4 h-4 text-gold-600" />
+                    )}
+                  </FormLabel>
                   <FormControl>
                     <Input 
                       type="date" 
-                      value={
-                        field.value 
-                          ? (typeof field.value === 'string' 
-                              ? field.value 
-                              : new Date(field.value).toISOString().split('T')[0])
-                          : ''
-                      }
-                      onChange={(e) => field.onChange(e.target.value || null)}
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
                     />
                   </FormControl>
+                  {field.value && new Date(field.value) < new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) && (
+                    <p className="text-xs text-gold-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      Le permis expire bientôt!
+                    </p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="assignedVehicleId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Car className="w-4 h-4 text-crimson-600" />
+                    Véhicule Assigné *
+                  </FormLabel>
+                  <Select 
+                    onValueChange={(value) => field.onChange(parseInt(value))} 
+                    defaultValue={field.value?.toString() || ""}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sélectionner un véhicule (requis)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableVehicles.length === 0 ? (
+                        <SelectItem value="none" disabled>Aucun véhicule disponible</SelectItem>
+                      ) : (
+                        availableVehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                            {vehicle.name} - {vehicle.licensePlate} ({vehicle.model})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Le véhicule assigné par défaut au chauffeur
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -253,7 +330,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
               <Button
                 type="submit"
                 disabled={isPending}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                className="flex-1 bg-gradient-to-r from-crimson-600 to-crimson-700 hover:from-crimson-700 hover:to-crimson-800"
               >
                 {isPending ? (
                   <>

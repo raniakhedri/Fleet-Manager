@@ -1,30 +1,24 @@
 {
-  "name": "FleetGuard - Gestion de Flotte",
+  "name": "FleetGuard - Gestion de Flotte Militaire",
   "short_name": "FleetGuard",
-  "description": "Application de gestion de flotte intelligente avec suivi GPS en temps réel",
+  "description": "Application de gestion de flotte militaire avec suivi GPS en temps réel",
   "start_url": "/Fleet-Manager/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#2563eb",
+  "background_color": "#f5f0dc",
+  "theme_color": "#c41e3a",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "icons/icon-512x512.png",
+      "src": "emblem.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
+    },
+    {
+      "src": "emblem.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "categories": ["business", "productivity"],

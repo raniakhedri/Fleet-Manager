@@ -9,8 +9,11 @@ import {
   drivers,
   insertDriverSchema,
   missions,
-  insertMissionSchema
+  insertMissionSchema,
+  gpsTracking,
+  insertGpsTrackingSchema,
 } from './schema';
+import * as auth from './models/auth';
 
 export const errorSchemas = {
   validation: z.object({
@@ -206,8 +209,72 @@ export const api = {
         responses: {
             200: z.custom<typeof userRoles.$inferSelect>(),
         }
-    }
-  }
+    },
+    // Superadmin: list all users
+    list: {
+        method: 'GET' as const,
+        path: '/api/users',
+        responses: {
+            200: z.array(z.custom<typeof auth.users.$inferSelect>()),
+        }
+    },
+    // Superadmin: update user role
+    updateRole: {
+        method: 'PATCH' as const,
+        path: '/api/users/:id/role',
+        input: z.object({
+            role: z.enum(['superadmin', 'operateur', 'chauffeur']),
+        }),
+        responses: {
+            200: z.custom<typeof auth.users.$inferSelect>(),
+            404: errorSchemas.notFound,
+        }
+    },
+    // Superadmin: delete user
+    delete: {
+        method: 'DELETE' as const,
+        path: '/api/users/:id',
+        responses: {
+            204: z.void(),
+            404: errorSchemas.notFound,
+        }
+    },
+  },
+  gpsTracking: {
+    // Get all live GPS positions
+    list: {
+      method: 'GET' as const,
+      path: '/api/gps/live',
+      responses: {
+        200: z.array(z.custom<typeof gpsTracking.$inferSelect>()),
+      },
+    },
+    // Get GPS position for a specific vehicle
+    get: {
+      method: 'GET' as const,
+      path: '/api/gps/live/:vehicleId',
+      responses: {
+        200: z.custom<typeof gpsTracking.$inferSelect>().nullable(),
+        404: errorSchemas.notFound,
+      },
+    },
+    // Update GPS position (sent by driver's device / simulator)
+    update: {
+      method: 'POST' as const,
+      path: '/api/gps/update',
+      input: z.object({
+        vehicleId: z.number(),
+        lat: z.number(),
+        lng: z.number(),
+        speed: z.number().optional(),
+        heading: z.number().optional(),
+        engineOn: z.boolean().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof gpsTracking.$inferSelect>(),
+      },
+    },
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
@@ -227,3 +294,4 @@ export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type InsertMission = z.infer<typeof insertMissionSchema>;
+export type InsertGpsTracking = z.infer<typeof insertGpsTrackingSchema>;

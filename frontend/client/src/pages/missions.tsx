@@ -17,7 +17,7 @@ export default function MissionsPage() {
   const { data: missions, isLoading } = useMissions();
   const { data: drivers } = useDrivers();
   const updateStatusMutation = useUpdateMissionStatus();
-  const { user, isAdmin } = useUser();
+  const { user, isAdmin, isOperateur, isChauffeur } = useUser();
   const { toast } = useToast();
   const previousMissionsCount = useRef<number>(0);
   
@@ -114,7 +114,7 @@ export default function MissionsPage() {
             {isAdmin ? "Gérez et suivez toutes les missions." : "Consultez et mettez à jour vos missions assignées."}
           </p>
         </div>
-        {isAdmin && (
+        {isOperateur && (
           <MissionForm trigger={
             <Button>
               <ClipboardList className="w-4 h-4 mr-2" />
@@ -184,7 +184,7 @@ export default function MissionsPage() {
                   {mission.status !== 'completed' && mission.status !== 'cancelled' && (
                     <div className="flex gap-2">
                       {/* Drivers can start their assigned pending missions */}
-                      {!isAdmin && mission.status === 'pending' && (
+                      {isChauffeur && mission.status === 'pending' && (
                         <Button 
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700"
@@ -195,7 +195,7 @@ export default function MissionsPage() {
                         </Button>
                       )}
                       {/* Drivers can complete their in-progress missions */}
-                      {!isAdmin && mission.status === 'in_progress' && (
+                      {isChauffeur && mission.status === 'in_progress' && (
                         <Button 
                           size="sm" 
                           variant="default"
@@ -206,8 +206,8 @@ export default function MissionsPage() {
                           Terminer
                         </Button>
                       )}
-                      {/* Admin can only cancel missions */}
-                      {isAdmin && mission.status === 'pending' && (
+                      {/* Operateur can cancel missions */}
+                      {isOperateur && mission.status === 'pending' && (
                         <Button 
                           size="sm"
                           variant="destructive"

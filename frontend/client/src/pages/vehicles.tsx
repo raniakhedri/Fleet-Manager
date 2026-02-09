@@ -20,7 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 export default function VehiclesPage() {
   const { data: vehicles, isLoading } = useVehicles();
   const deleteMutation = useDeleteVehicle();
-  const { isAdmin } = useUser();
+  const { isAdmin, isOperateur } = useUser();
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
@@ -42,10 +42,10 @@ export default function VehiclesPage() {
         <div>
           <h1 className="text-3xl font-bold font-display text-slate-900">Flotte de Véhicules</h1>
           <p className="text-slate-500 mt-2">
-            {isAdmin ? "Gérez vos véhicules et consultez leur statut actuel." : "Consultez tous les véhicules et leur statut actuel."}
+            {isOperateur ? "Gérez vos véhicules et consultez leur statut actuel." : "Consultez tous les véhicules et leur statut actuel."}
           </p>
         </div>
-        {isAdmin && <VehicleForm />}
+        {isOperateur && <VehicleForm />}
       </div>
 
       <Card className="border-none shadow-md overflow-hidden">
@@ -127,7 +127,7 @@ export default function VehiclesPage() {
                               <MapPin className="mr-2 h-4 w-4" /> Suivre la Position
                             </DropdownMenuItem>
                           </Link>
-                          {isAdmin && (
+                          {isOperateur && (
                             <>
                               <VehicleForm 
                                 vehicle={vehicle} 

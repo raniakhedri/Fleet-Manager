@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { generateToken } from "./jwt-auth";
+import type { AppRole } from "./jwt-auth";
 import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
@@ -49,7 +50,7 @@ export function registerJWTAuthRoutes(app: Express) {
           passwordHash,
           firstName: input.firstName,
           lastName: input.lastName,
-          role: "user", // Default to user role on signup
+          role: "chauffeur", // Default to chauffeur role on signup
         })
         .returning();
 
@@ -57,7 +58,7 @@ export function registerJWTAuthRoutes(app: Express) {
       const token = generateToken({
         userId: newUser.id,
         email: newUser.email!,
-        role: newUser.role as "admin" | "user",
+        role: (newUser.role || "chauffeur") as AppRole,
         firstName: newUser.firstName || undefined,
         lastName: newUser.lastName || undefined,
       });
@@ -106,7 +107,7 @@ export function registerJWTAuthRoutes(app: Express) {
       const token = generateToken({
         userId: user.id,
         email: user.email!,
-        role: user.role as "admin" | "user",
+        role: (user.role || "chauffeur") as AppRole,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
       });

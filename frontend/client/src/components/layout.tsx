@@ -24,7 +24,7 @@ import { useLocation as useWouterLocation } from "wouter";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useWouterLocation();
-  const { user, isAdmin } = useUser();
+  const { user, isSuperAdmin, isOperateur, isChauffeur, isAdmin } = useUser();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleLogout = () => {
@@ -33,20 +33,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     window.location.href = "/Fleet-Manager/login";
   };
 
-  const navItems = [
-    { href: "/dashboard", label: "Tableau de Bord", icon: LayoutDashboard },
-    ...(isAdmin ? [
-      { href: "/map", label: "Carte en Direct", icon: Map },
-      { href: "/vehicles", label: "Flotte", icon: Car },
-      { href: "/drivers", label: "Chauffeurs", icon: UserCircle },
-      { href: "/missions", label: "Missions", icon: ClipboardList },
-      { href: "/reports", label: "Rapports", icon: BarChart3 },
-      { href: "/settings", label: "Paramètres Admin", icon: Settings }
-    ] : [
+  // Build nav items based on role
+  const navItems = (() => {
+    if (isSuperAdmin) {
+      return [
+        { href: "/dashboard", label: "Tableau de Bord", icon: LayoutDashboard },
+        { href: "/map", label: "Carte en Direct", icon: Map },
+        { href: "/vehicles", label: "Flotte", icon: Car },
+        { href: "/drivers", label: "Chauffeurs", icon: UserCircle },
+        { href: "/users", label: "Gestion Utilisateurs", icon: Users },
+        { href: "/reports", label: "Rapports", icon: BarChart3 },
+        { href: "/settings", label: "Paramètres", icon: Settings },
+      ];
+    }
+    if (isOperateur) {
+      return [
+        { href: "/dashboard", label: "Tableau de Bord", icon: LayoutDashboard },
+        { href: "/map", label: "Suivi GPS", icon: Map },
+        { href: "/vehicles", label: "Flotte", icon: Car },
+        { href: "/drivers", label: "Chauffeurs", icon: UserCircle },
+        { href: "/missions", label: "Missions", icon: ClipboardList },
+        { href: "/reports", label: "Rapports", icon: BarChart3 },
+        { href: "/settings", label: "Paramètres", icon: Settings },
+      ];
+    }
+    // chauffeur
+    return [
       { href: "/missions", label: "Mes Missions", icon: ClipboardList },
       { href: "/profile", label: "Mon Profil", icon: User },
-    ]),
-  ];
+    ];
+  })();
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 text-white">
@@ -99,7 +115,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {isAdmin && (
               <Badge className="mt-1 text-xs bg-gradient-to-r from-gold-500 to-gold-600 text-gray-900 border-0">
                 <Shield className="w-3 h-3 mr-1" />
-                Admin
+                {isSuperAdmin ? "Super Admin" : "Opérateur"}
               </Badge>
             )}
           </div>

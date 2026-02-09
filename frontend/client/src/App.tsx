@@ -18,14 +18,24 @@ import MissionsPage from "@/pages/missions";
 import ReportsPage from "@/pages/reports";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
+import UsersPage from "@/pages/users";
 import NotFound from "@/pages/not-found";
+
+type AllowedRole = "superadmin" | "operateur" | "chauffeur";
+
+function normalizeRole(role?: string): AllowedRole {
+  if (!role) return "chauffeur";
+  if (role === "admin") return "superadmin";
+  if (role === "user" || role === "driver") return "chauffeur";
+  return role as AllowedRole;
+}
 
 function ProtectedRoute({ 
   component: Component, 
-  adminOnly = false 
+  allowedRoles,
 }: { 
   component: React.ComponentType;
-  adminOnly?: boolean;
+  allowedRoles?: AllowedRole[];
 }) {
   const token = localStorage.getItem("token");
   const userStr = localStorage.getItem("user");
@@ -34,18 +44,22 @@ function ProtectedRoute({
     return <LoginPage />;
   }
 
-  // Check user role
   if (userStr) {
     const user = JSON.parse(userStr);
-    const isDriver = user.role === "driver" || user.role === "user";
+    const role = normalizeRole(user.role);
     
-    // Block drivers from accessing admin-only pages
-    if (adminOnly && isDriver) {
-      return <DriverDashboard />;
+    // If role restrictions are specified, check them
+    if (allowedRoles && !allowedRoles.includes(role)) {
+      // Chauffeurs always go to their dashboard
+      if (role === "chauffeur") {
+        return <DriverDashboard />;
+      }
+      // Superadmin trying to access operateur-only → redirect to dashboard
+      return <Dashboard />;
     }
     
-    // Redirect drivers accessing dashboard to driver dashboard
-    if (isDriver && Component === Dashboard) {
+    // Drivers accessing dashboard → driver dashboard
+    if (role === "chauffeur" && Component === Dashboard) {
       return <DriverDashboard />;
     }
   }
@@ -62,15 +76,33 @@ function AppRouter() {
         <Route path="/login" component={LoginPage} />
         <Route path="/logout" component={LogoutPage} />
         <Route path="/api/logout" component={LogoutPage} />
-        <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} adminOnly={true} />} />
-        <Route path="/map" component={() => <ProtectedRoute component={LiveMapPage} adminOnly={true} />} />
-        <Route path="/vehicles" component={() => <ProtectedRoute component={VehiclesPage} adminOnly={true} />} />
-        <Route path="/vehicles/:id" component={() => <ProtectedRoute component={VehicleDetailsPage} adminOnly={true} />} />
-        <Route path="/drivers" component={() => <ProtectedRoute component={DriversPage} adminOnly={true} />} />
+        
+        {/* Dashboard — superadmin & operateur see admin dashboard; chauffeur sees driver dashboard */}
+        <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} allowedRoles={["superadmin", "operateur"]} />} />
+        
+        {/* GPS Live Map — operateur + superadmin */}
+        <Route path="/map" component={() => <ProtectedRoute component={LiveMapPage} allowedRoles={["superadmin", "operateur"]} />} />
+        
+        {/* Vehicles — operateur manages, superadmin views */}
+        <Route path="/vehicles" component={() => <ProtectedRoute component={VehiclesPage} allowedRoles={["superadmin", "operateur"]} />} />
+        <Route path="/vehicles/:id" component={() => <ProtectedRoute component={VehicleDetailsPage} allowedRoles={["superadmin", "operateur"]} />} />
+        
+        {/* Drivers — operateur manages, superadmin views */}
+        <Route path="/drivers" component={() => <ProtectedRoute component={DriversPage} allowedRoles={["superadmin", "operateur"]} />} />
+        
+        {/* Missions — everyone can see but only operateur can create/edit */}
         <Route path="/missions" component={() => <ProtectedRoute component={MissionsPage} />} />
-        <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} adminOnly={true} />} />
+        
+        {/* Reports — operateur + superadmin */}
+        <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} allowedRoles={["superadmin", "operateur"]} />} />
+        
+        {/* User management — superadmin only */}
+        <Route path="/users" component={() => <ProtectedRoute component={UsersPage} allowedRoles={["superadmin"]} />} />
+        
+        {/* Profile & Settings — everyone */}
         <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
         <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
+        
         <Route component={NotFound} />
       </Switch>
     </WouterRouter>

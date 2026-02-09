@@ -4,10 +4,12 @@ import type { Request, Response, NextFunction } from "express";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 const JWT_EXPIRY = "7d";
 
+export type AppRole = "superadmin" | "operateur" | "chauffeur";
+
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: "admin" | "user";
+  role: AppRole;
   firstName?: string;
   lastName?: string;
 }

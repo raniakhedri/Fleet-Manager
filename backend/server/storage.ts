@@ -5,13 +5,15 @@ import {
   userRoles,
   drivers,
   missions,
+  gpsTracking,
   type InsertVehicle,
   type UpdateVehicleRequest,
   type InsertLocation,
   type InsertUserRole,
   type UserRole,
   type Vehicle,
-  type Location
+  type Location,
+  type GpsTracking,
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -54,6 +56,11 @@ export interface IStorage {
   updateMission(id: number, updates: Partial<InsertMission>): Promise<Mission>;
   deleteMission(id: number): Promise<void>;
   updateMissionStatus(id: number, status: string, notes?: string): Promise<Mission>;
+
+  // GPS Tracking
+  getGpsPositions(): Promise<GpsTracking[]>;
+  getGpsPosition(vehicleId: number): Promise<GpsTracking | undefined>;
+  upsertGpsPosition(data: { vehicleId: number; driverId?: number | null; lat: number; lng: number; speed?: number; heading?: number; engineOn?: boolean }): Promise<GpsTracking>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -260,6 +267,50 @@ export class DatabaseStorage implements IStorage {
     }
 
     return mission;
+  }
+  
+  // GPS Tracking
+  async getGpsPositions(): Promise<GpsTracking[]> {
+    return await db.select().from(gpsTracking);
+  }
+
+  async getGpsPosition(vehicleId: number): Promise<GpsTracking | undefined> {
+    const [pos] = await db.select().from(gpsTracking).where(eq(gpsTracking.vehicleId, vehicleId));
+    return pos;
+  }
+
+  async upsertGpsPosition(data: { vehicleId: number; driverId?: number | null; lat: number; lng: number; speed?: number; heading?: number; engineOn?: boolean }): Promise<GpsTracking> {
+    const [result] = await db.insert(gpsTracking)
+      .values({
+        vehicleId: data.vehicleId,
+        driverId: data.driverId ?? null,
+        lat: data.lat,
+        lng: data.lng,
+        speed: data.speed ?? 0,
+        heading: data.heading ?? 0,
+        engineOn: data.engineOn ?? false,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: gpsTracking.vehicleId,
+        set: {
+          driverId: data.driverId ?? null,
+          lat: data.lat,
+          lng: data.lng,
+          speed: data.speed ?? 0,
+          heading: data.heading ?? 0,
+          engineOn: data.engineOn ?? false,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    
+    // Also update the vehicle's current lat/lng
+    await db.update(vehicles)
+      .set({ lat: data.lat, lng: data.lng, lastUpdated: new Date() })
+      .where(eq(vehicles.id, data.vehicleId));
+    
+    return result;
   }
 }
 

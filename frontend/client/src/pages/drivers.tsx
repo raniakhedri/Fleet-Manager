@@ -21,7 +21,7 @@ export default function DriversPage() {
   const { data: drivers, isLoading } = useDrivers();
   const deleteMutation = useDeleteDriver();
   const updateMutation = useUpdateDriver();
-  const { isAdmin } = useUser();
+  const { isAdmin, isOperateur } = useUser();
   
   const handleFireDriver = (driver: any) => {
     updateMutation.mutate({
@@ -50,10 +50,10 @@ export default function DriversPage() {
         <div>
           <h1 className="text-3xl font-bold font-display text-slate-900">Chauffeurs</h1>
           <p className="text-slate-500 mt-2">
-            {isAdmin ? "Gérez les chauffeurs et leurs affectations." : "Consultez tous les chauffeurs."}
+            {isOperateur ? "Gérez les chauffeurs et leurs affectations." : "Consultez tous les chauffeurs."}
           </p>
         </div>
-        {isAdmin && (
+        {isOperateur && (
           <DriverForm />
         )}
       </div>
@@ -72,7 +72,7 @@ export default function DriversPage() {
                 <TableHead>Statut</TableHead>
                 <TableHead>Véhicule Assigné</TableHead>
                 <TableHead>Inscrit</TableHead>
-                {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                {isOperateur && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -85,7 +85,7 @@ export default function DriversPage() {
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                    {isAdmin && <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
+                    {isOperateur && <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>}
                   </TableRow>
                 ))
               ) : drivers?.length === 0 ? (
@@ -127,7 +127,7 @@ export default function DriversPage() {
                     <TableCell className="text-slate-500 text-sm">
                       {driver.createdAt ? formatDistanceToNow(new Date(driver.createdAt), { addSuffix: true }) : "Inconnu"}
                     </TableCell>
-                    {isAdmin && (
+                    {isOperateur && (
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

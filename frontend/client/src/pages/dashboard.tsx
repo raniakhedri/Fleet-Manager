@@ -11,7 +11,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Dashboard() {
   const { data: vehicles, isLoading } = useVehicles();
-  const { user, isAdmin } = useUser();
+  const { user, isAdmin, isSuperAdmin, isOperateur } = useUser();
+
+  const roleLabel = isSuperAdmin ? "Super Admin" : isOperateur ? "Opérateur" : "Chauffeur";
 
   const activeVehicles = vehicles?.filter(v => v.status === "active").length || 0;
   const maintenanceVehicles = vehicles?.filter(v => v.status === "maintenance").length || 0;
@@ -39,7 +41,7 @@ export default function Dashboard() {
             {user && (
               <Badge variant={isAdmin ? "default" : "secondary"} className="flex items-center gap-1">
                 {isAdmin ? <Shield className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                {isAdmin ? "Admin" : "Chauffeur"}
+                {roleLabel}
               </Badge>
             )}
           </div>
@@ -51,11 +53,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {!isAdmin && (
+      {isSuperAdmin && (
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Info className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800">
-            Vous avez un accès en lecture seule. Contactez un administrateur pour demander des permissions de gestion.
+            Vous êtes connecté en tant que Super Admin. Vous pouvez consulter la flotte et gérer les utilisateurs.
           </AlertDescription>
         </Alert>
       )}

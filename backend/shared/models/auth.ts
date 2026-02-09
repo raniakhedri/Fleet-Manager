@@ -22,7 +22,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For JWT-based auth
-  role: varchar("role").default("driver"), // 'admin' or 'driver'
+  role: varchar("role").default("chauffeur"), // 'superadmin', 'operateur', 'chauffeur'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

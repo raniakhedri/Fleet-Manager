@@ -27,7 +27,7 @@ export const drivers = pgTable("drivers", {
 export const userRoles = pgTable("user_roles", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => auth.users.id),
-  role: text("role").notNull().default("driver"), // admin, driver
+  role: text("role").notNull().default("chauffeur"), // superadmin, operateur, chauffeur
   phoneNumber: text("phone_number"),
   driverId: integer("driver_id").references(() => drivers.id), // Link to driver profile
 });
@@ -76,6 +76,19 @@ export const locations = pgTable("locations", {
   speed: doublePrecision("speed"),
   heading: doublePrecision("heading"),
   timestamp: timestamp("timestamp").defaultNow(),
+});
+
+// GPS tracking table — stores the latest known position per vehicle for real-time dashboard
+export const gpsTracking = pgTable("gps_tracking", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").notNull().references(() => vehicles.id).unique(),
+  driverId: integer("driver_id").references(() => drivers.id),
+  lat: doublePrecision("lat").notNull(),
+  lng: doublePrecision("lng").notNull(),
+  speed: doublePrecision("speed").default(0),
+  heading: doublePrecision("heading").default(0),
+  engineOn: boolean("engine_on").default(false),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // === RELATIONS ===
@@ -133,10 +146,22 @@ export const locationsRelations = relations(locations, ({ one }) => ({
   }),
 }));
 
+export const gpsTrackingRelations = relations(gpsTracking, ({ one }) => ({
+  vehicle: one(vehicles, {
+    fields: [gpsTracking.vehicleId],
+    references: [vehicles.id],
+  }),
+  driver: one(drivers, {
+    fields: [gpsTracking.driverId],
+    references: [drivers.id],
+  }),
+}));
+
 // === BASE SCHEMAS ===
 export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true, lastUpdated: true });
 export const insertLocationSchema = createInsertSchema(locations).omit({ id: true, timestamp: true });
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({ id: true });
+export const insertGpsTrackingSchema = createInsertSchema(gpsTracking).omit({ id: true, updatedAt: true });
 export const insertDriverSchema = createInsertSchema(drivers, {
   licenseExpiry: z.string().optional().nullable(),
 })
@@ -169,6 +194,9 @@ export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 
 export type Location = typeof locations.$inferSelect;
 export type InsertLocation = z.infer<typeof insertLocationSchema>;
+
+export type GpsTracking = typeof gpsTracking.$inferSelect;
+export type InsertGpsTracking = z.infer<typeof insertGpsTrackingSchema>;
 
 export type UserRole = typeof userRoles.$inferSelect;
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;

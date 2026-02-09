@@ -7,9 +7,10 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { db } from "./db";
-import { users, userRoles, vehicles, drivers } from "@shared/schema";
+import { users, userRoles, vehicles, drivers, gpsTracking } from "@shared/schema";
 import { eq, lte, gte, and } from "drizzle-orm";
 import { generateRandomPassword, sendDriverCredentialsEmail, sendLicenseExpiryWarningToDriver, sendLicenseExpiryNotificationToAdmin } from "./email-service";
+import { broadcastGpsUpdate } from "./websocket";
 
 // Function to check for expiring licenses and send notifications
 async function checkExpiringLicenses() {
@@ -28,8 +29,9 @@ async function checkExpiringLicenses() {
       .where(lte(drivers.licenseExpiry, tenDaysFromNow));
     
     // Get admin emails for notifications
-    const adminUsers = await db.select().from(users).where(eq(users.role, 'admin'));
-    const adminEmails = adminUsers.map(u => u.email).filter(Boolean) as string[];
+    const adminUsers = await db.select().from(users).where(eq(users.role, 'operateur'));
+    const superAdmins = await db.select().from(users).where(eq(users.role, 'superadmin'));
+    const adminEmails = [...adminUsers, ...superAdmins].map(u => u.email).filter(Boolean) as string[];
     
     for (const driver of expiringDrivers) {
       if (!driver.licenseExpiry) continue;
@@ -125,8 +127,8 @@ export async function registerRoutes(
     }
   });
 
-  // === License Expiry Check API (Admin only) ===
-  app.get("/api/drivers/expiring-licenses", isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  // === License Expiry Check API (Operateur/Superadmin) ===
+  app.get("/api/drivers/expiring-licenses", isAuthenticatedJWT, requireRole("operateur", "superadmin"), async (req, res) => {
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -158,8 +160,8 @@ export async function registerRoutes(
     }
   });
   
-  // Trigger license check manually (Admin only)
-  app.post("/api/drivers/check-licenses", isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  // Trigger license check manually (Operateur/Superadmin)
+  app.post("/api/drivers/check-licenses", isAuthenticatedJWT, requireRole("operateur", "superadmin"), async (req, res) => {
     try {
       await checkExpiringLicenses();
       res.json({ message: "License check completed and notifications sent" });
@@ -182,7 +184,7 @@ export async function registerRoutes(
     res.json(vehicle);
   });
 
-  app.post(api.vehicles.create.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.post(api.vehicles.create.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.vehicles.create.input.parse(req.body);
       const vehicle = await storage.createVehicle(input);
@@ -195,7 +197,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.vehicles.update.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.put(api.vehicles.update.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
         const input = api.vehicles.update.input.parse(req.body);
         const vehicle = await storage.updateVehicle(Number(req.params.id), input);
@@ -206,7 +208,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.vehicles.delete.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.delete(api.vehicles.delete.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     await storage.deleteVehicle(Number(req.params.id));
     res.status(204).send();
   });
@@ -256,7 +258,7 @@ export async function registerRoutes(
     res.json(driver);
   });
 
-  app.post(api.drivers.create.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.post(api.drivers.create.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.drivers.create.input.parse(req.body);
       
@@ -339,7 +341,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.drivers.update.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.put(api.drivers.update.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.drivers.update.input.parse(req.body);
       const driverId = Number(req.params.id);
@@ -379,7 +381,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.drivers.delete.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.delete(api.drivers.delete.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     const driverId = Number(req.params.id);
     
     // Get driver to check vehicle assignment before deletion
@@ -408,7 +410,7 @@ export async function registerRoutes(
     res.json(mission);
   });
 
-  app.post(api.missions.create.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.post(api.missions.create.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.missions.create.input.parse(req.body);
       const mission = await storage.createMission(input);
@@ -421,7 +423,7 @@ export async function registerRoutes(
     }
   });
 
-  app.put(api.missions.update.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.put(api.missions.update.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.missions.update.input.parse(req.body);
       const mission = await storage.updateMission(Number(req.params.id), input);
@@ -432,7 +434,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.missions.delete.path, isAuthenticatedJWT, requireRole("admin"), async (req, res) => {
+  app.delete(api.missions.delete.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     await storage.deleteMission(Number(req.params.id));
     res.status(204).send();
   });
@@ -450,6 +452,116 @@ export async function registerRoutes(
     } catch (err) {
       res.status(400).json({ message: "Invalid input" });
     }
+  });
+
+  // === GPS Tracking Routes ===
+
+  // Get all live GPS positions (operateur + superadmin)
+  app.get(api.gpsTracking.list.path, isAuthenticatedJWT, requireRole("operateur", "superadmin"), async (req, res) => {
+    const positions = await storage.getGpsPositions();
+    res.json(positions);
+  });
+
+  // Get GPS position for a specific vehicle
+  app.get(api.gpsTracking.get.path, isAuthenticatedJWT, requireRole("operateur", "superadmin"), async (req, res) => {
+    const pos = await storage.getGpsPosition(Number(req.params.vehicleId));
+    if (!pos) return res.status(404).json({ message: "No GPS data for this vehicle" });
+    res.json(pos);
+  });
+
+  // Update GPS position (can be called by driver device or operateur)
+  app.post(api.gpsTracking.update.path, isAuthenticatedJWT, async (req, res) => {
+    try {
+      const input = api.gpsTracking.update.input.parse(req.body);
+      
+      // Get current driver for the vehicle
+      const vehicle = await storage.getVehicle(input.vehicleId);
+      
+      const gpsData = await storage.upsertGpsPosition({
+        vehicleId: input.vehicleId,
+        driverId: vehicle?.currentDriverId ?? null,
+        lat: input.lat,
+        lng: input.lng,
+        speed: input.speed,
+        heading: input.heading,
+        engineOn: input.engineOn,
+      });
+      
+      // Also add to location history
+      await storage.addLocation({
+        vehicleId: input.vehicleId,
+        lat: input.lat,
+        lng: input.lng,
+        speed: input.speed,
+        heading: input.heading,
+      });
+
+      // Broadcast to all connected WebSocket clients (operateur/superadmin)
+      broadcastGpsUpdate(gpsData);
+      
+      res.json(gpsData);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(400).json({ message: "Invalid GPS data" });
+    }
+  });
+
+  // === User Management Routes (Superadmin only) ===
+
+  // List all users
+  app.get(api.users.list.path, isAuthenticatedJWT, requireRole("superadmin"), async (req, res) => {
+    const allUsers = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      createdAt: users.createdAt,
+    }).from(users);
+    res.json(allUsers);
+  });
+
+  // Update user role
+  app.patch(api.users.updateRole.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res) => {
+    try {
+      const { role } = api.users.updateRole.input.parse(req.body);
+      const userId = req.params.id;
+      
+      // Prevent superadmin from demoting themselves
+      if (userId === req.user.userId && role !== 'superadmin') {
+        return res.status(400).json({ message: "Vous ne pouvez pas modifier votre propre rôle" });
+      }
+      
+      const [updated] = await db.update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(400).json({ message: "Invalid input" });
+    }
+  });
+
+  // Delete user (superadmin only)
+  app.delete(api.users.delete.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res) => {
+    const userId = req.params.id;
+    
+    // Prevent deleting yourself
+    if (userId === req.user.userId) {
+      return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+    }
+    
+    // Delete related records
+    await db.delete(userRoles).where(eq(userRoles.userId, userId));
+    await db.delete(users).where(eq(users.id, userId));
+    res.status(204).send();
   });
 
   // Seed Data
@@ -513,14 +625,14 @@ async function seedUsers() {
             .where(eq(users.email, "rania@admin.com"));
 
         if (!raniaUser) {
-            console.log("Creating admin user: rania@admin.com");
+            console.log("Creating superadmin user: rania@admin.com");
             const raniaHash = await bcrypt.hash("raniakhedri", 10);
             await db.insert(users).values({
                 email: "rania@admin.com",
                 passwordHash: raniaHash,
                 firstName: "Rania",
                 lastName: "Admin",
-                role: "admin",
+                role: "superadmin",
             });
         }
 

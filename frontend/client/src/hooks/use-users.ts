@@ -25,8 +25,53 @@ export function useUsers() {
         headers: getAuthHeaders(),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to fetch users");
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to fetch users");
+      }
       return res.json();
+    },
+  });
+}
+
+/** Create a new user (superadmin only) */
+export function useCreateUser() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (data: {
+      email: string;
+      password: string;
+      firstName?: string;
+      lastName?: string;
+      role: "superadmin" | "operateur" | "chauffeur";
+    }) => {
+      const res = await fetch(getApiUrl(api.users.create.path), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Erreur" }));
+        throw new Error(err.message || "Failed to create user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({
+        title: "Utilisateur créé",
+        description: "Le nouvel utilisateur a été créé avec succès.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 }

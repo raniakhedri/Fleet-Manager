@@ -1,10 +1,13 @@
-import { useUsers, useUpdateUserRole, useDeleteUser } from "@/hooks/use-users";
+import { useState } from "react";
+import { useUsers, useUpdateUserRole, useDeleteUser, useCreateUser } from "@/hooks/use-users";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, Shield, UserCircle, Users, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Trash2, Shield, UserCircle, Users, AlertTriangle, UserPlus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -12,6 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,21 +58,53 @@ function normalizeRole(role?: string): AppRole {
   return role as AppRole;
 }
 
+function getUserDisplayName(user: any): string {
+  if (user.firstName || user.lastName) {
+    return [user.firstName, user.lastName].filter(Boolean).join(" ");
+  }
+  return user.email || "Utilisateur";
+}
+
+function getUserInitials(user: any): string {
+  if (user.firstName) return user.firstName[0].toUpperCase();
+  if (user.email) return user.email[0].toUpperCase();
+  return "U";
+}
+
 export default function UsersPage() {
-  const { data: users, isLoading } = useUsers();
+  const { data: users, isLoading, error } = useUsers();
   const updateRoleMutation = useUpdateUserRole();
   const deleteMutation = useDeleteUser();
+  const createMutation = useCreateUser();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    role: "operateur" as AppRole,
+  });
 
   // Get current user id to prevent self-modification
   const currentUserStr = localStorage.getItem("user");
   const currentUserId = currentUserStr ? JSON.parse(currentUserStr).id : null;
 
-  const handleRoleChange = (userId: number, newRole: AppRole) => {
-    updateRoleMutation.mutate({ id: userId, role: newRole });
+  const handleRoleChange = (userId: string, newRole: AppRole) => {
+    updateRoleMutation.mutate({ id: Number(userId), role: newRole });
   };
 
-  const handleDelete = (userId: number) => {
-    deleteMutation.mutate(userId);
+  const handleDelete = (userId: string) => {
+    deleteMutation.mutate(Number(userId));
+  };
+
+  const handleCreate = () => {
+    if (!newUser.email || !newUser.password) return;
+    createMutation.mutate(newUser, {
+      onSuccess: () => {
+        setCreateOpen(false);
+        setNewUser({ email: "", password: "", firstName: "", lastName: "", role: "operateur" });
+      },
+    });
   };
 
   const getRoleBadge = (role: string) => {
@@ -82,9 +126,100 @@ export default function UsersPage() {
             Gérez les rôles et les accès de tous les utilisateurs du système.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <Users className="w-5 h-5" />
-          <span>{users?.length || 0} utilisateur(s)</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Users className="w-5 h-5" />
+            <span>{users?.length || 0} utilisateur(s)</span>
+          </div>
+
+          {/* Create User Dialog */}
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="w-4 h-4" />
+                Ajouter un Utilisateur
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Nouvel Utilisateur</DialogTitle>
+                <DialogDescription>
+                  Créez un compte pour un opérateur, chauffeur ou super admin.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Prénom</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="Jean"
+                      value={newUser.firstName}
+                      onChange={(e) => setNewUser({ ...newUser, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Nom</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Dupont"
+                      value={newUser.lastName}
+                      onChange={(e) => setNewUser({ ...newUser, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="jean@example.com"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe *</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Minimum 6 caractères"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Rôle *</Label>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={(val: string) => setNewUser({ ...newUser, role: val as AppRole })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                      <SelectItem value="operateur">Opérateur</SelectItem>
+                      <SelectItem value="chauffeur">Chauffeur</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleCreate}
+                  disabled={!newUser.email || !newUser.password || createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Création..." : "Créer l'utilisateur"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -102,10 +237,17 @@ export default function UsersPage() {
                 <Skeleton key={i} className="h-14 w-full" />
               ))}
             </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-400">
+              <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p className="font-medium">Erreur lors du chargement</p>
+              <p className="text-sm mt-1 text-slate-400">Vérifiez que le backend est bien redéployé avec les nouvelles routes.</p>
+            </div>
           ) : !users?.length ? (
             <div className="text-center py-12 text-slate-400">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>Aucun utilisateur trouvé.</p>
+              <p className="text-sm mt-2">Cliquez sur "Ajouter un Utilisateur" pour créer le premier.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -121,7 +263,7 @@ export default function UsersPage() {
                 </TableHeader>
                 <TableBody>
                   {users.map((user: any) => {
-                    const isSelf = user.id === currentUserId;
+                    const isSelf = String(user.id) === String(currentUserId);
                     const role = normalizeRole(user.role);
                     return (
                       <TableRow key={user.id} className={isSelf ? "bg-gold-50/50" : ""}>
@@ -129,11 +271,11 @@ export default function UsersPage() {
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-600 flex items-center justify-center border-2 border-gold-300/50 shadow">
                               <span className="font-bold text-white text-sm">
-                                {user.username?.[0]?.toUpperCase() || "U"}
+                                {getUserInitials(user)}
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium text-slate-900">{user.username}</p>
+                              <p className="font-medium text-slate-900">{getUserDisplayName(user)}</p>
                               {isSelf && (
                                 <span className="text-xs text-gold-600 font-medium">Vous</span>
                               )}
@@ -148,7 +290,7 @@ export default function UsersPage() {
                           ) : (
                             <Select
                               value={role}
-                              onValueChange={(val) => handleRoleChange(user.id, val as AppRole)}
+                              onValueChange={(val: string) => handleRoleChange(user.id, val as AppRole)}
                               disabled={updateRoleMutation.isPending}
                             >
                               <SelectTrigger className="w-[160px] h-9">
@@ -184,7 +326,7 @@ export default function UsersPage() {
                                     Confirmer la suppression
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{user.username}</strong> ?
+                                    Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{getUserDisplayName(user)}</strong> ({user.email}) ?
                                     Cette action est irréversible.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>

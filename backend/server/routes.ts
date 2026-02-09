@@ -523,6 +523,43 @@ export async function registerRoutes(
     res.json(allUsers);
   });
 
+  // Create a new user (superadmin only)
+  app.post(api.users.create.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res: any) => {
+    try {
+      const input = api.users.create.input.parse(req.body);
+
+      // Check if user already exists
+      const existing = await db.select().from(users).where(eq(users.email, input.email));
+      if (existing.length > 0) {
+        return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+      }
+
+      const passwordHash = await bcrypt.hash(input.password, 10);
+
+      const [newUser] = await db.insert(users).values({
+        email: input.email,
+        passwordHash,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        role: input.role,
+      }).returning();
+
+      res.status(201).json({
+        id: newUser.id,
+        email: newUser.email,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        role: newUser.role,
+        createdAt: newUser.createdAt,
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(400).json({ message: "Erreur lors de la création de l'utilisateur" });
+    }
+  });
+
   // Update user role
   app.patch(api.users.updateRole.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res) => {
     try {

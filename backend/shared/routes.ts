@@ -230,6 +230,22 @@ export const api = {
             404: errorSchemas.notFound,
         }
     },
+    // Superadmin: create a new user
+    create: {
+        method: 'POST' as const,
+        path: '/api/users',
+        input: z.object({
+            email: z.string().email(),
+            password: z.string().min(6),
+            firstName: z.string().optional(),
+            lastName: z.string().optional(),
+            role: z.enum(['superadmin', 'operateur', 'chauffeur']),
+        }),
+        responses: {
+            201: z.custom<typeof auth.users.$inferSelect>(),
+            400: errorSchemas.badRequest,
+        }
+    },
     // Superadmin: delete user
     delete: {
         method: 'DELETE' as const,

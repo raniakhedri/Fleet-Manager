@@ -54,7 +54,7 @@ function ProtectedRoute({
 }
 
 function AppRouter() {
-  const base = import.meta.env.PROD ? '/Fleet-ManagerAhmed' : '';
+  const base = import.meta.env.PROD ? '/Fleet-Manager' : '';
   return (
     <WouterRouter base={base}>
       <Switch>

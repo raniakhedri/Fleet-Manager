@@ -11,8 +11,8 @@ export default function LogoutPage() {
     localStorage.removeItem("user");
     
     // Redirect to login
-    setTimeout(() => {
-      window.location.href = "/Fleet-ManagerAhmed/login";
+      setTimeout(() => {
+        window.location.href = "/Fleet-Manager/login";
     }, 500);
   }, [setLocation]);
 

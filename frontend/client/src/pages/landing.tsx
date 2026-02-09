@@ -89,7 +89,7 @@ export default function LandingPage() {
             <div className="relative rounded-2xl bg-white shadow-2xl border-4 border-gold-200/50 p-4 transform hover:rotate-0 transition-transform duration-500 -rotate-1">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-cream-100 to-cream-200 flex items-center justify-center">
                 <img 
-                  src="/Fleet-ManagerAhmed/emblem.png" 
+                  src="/Fleet-Manager/emblem.png" 
                   alt="Emblème FleetGuard" 
                   className="object-contain h-64 md:h-80 drop-shadow-2xl"
                 />

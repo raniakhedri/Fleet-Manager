@@ -1,9 +1,9 @@
 // FleetGuard Service Worker for PWA
 const CACHE_NAME = 'fleetguard-v1';
 const urlsToCache = [
-  '/Fleet-ManagerAhmed/',
-  '/Fleet-ManagerAhmed/index.html',
-  '/Fleet-ManagerAhmed/manifest.json'
+  '/Fleet-Manager/',
+  '/Fleet-Manager/index.html',
+  '/Fleet-Manager/manifest.json'
 ];
 
 // Install event

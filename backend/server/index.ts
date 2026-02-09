@@ -14,14 +14,22 @@ declare module "http" {
   }
 }
 
-// Enable CORS for frontend - add your production frontend URL here
-const allowedOrigins = [
+// Enable CORS for frontend - allow local dev and the origin derived from FRONTEND_URL
+const allowedOrigins: string[] = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  "https://ahmedznati.github.io",
- 
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
+];
+
+if (process.env.FRONTEND_URL) {
+  try {
+    // If FRONTEND_URL includes a path (e.g. GitHub Pages repo), extract its origin for CORS
+    const parsed = new URL(process.env.FRONTEND_URL);
+    allowedOrigins.push(parsed.origin);
+  } catch {
+    // Fallback: push the raw value (useful if someone provides just the origin)
+    allowedOrigins.push(process.env.FRONTEND_URL);
+  }
+}
 
 app.use(cors({
   origin: (origin, callback) => {

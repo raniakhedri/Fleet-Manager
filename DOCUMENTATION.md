@@ -233,7 +233,7 @@
 
 ### Frontend (GitHub Pages)
 
-**URL:** `https://ahmedznati.github.io/Fleet-ManagerAhmed/`
+**URL:** `https://raniakhedri.github.io/Fleet-Manager/`
 
 **CI/CD Pipeline:**
 1. Push to `master` branch (changes in `frontend/`)
@@ -256,7 +256,7 @@
 DATABASE_URL=postgresql://...
 JWT_SECRET=your-secret-key
 NODE_ENV=production
-FRONTEND_URL=https://ahmedznati.github.io/Fleet-ManagerAhmed
+FRONTEND_URL=https://raniakhedri.github.io/Fleet-Manager/
 ```
 
 ---
@@ -422,7 +422,7 @@ This project is licensed under the MIT License.
 
 ## 🔗 Links
 
-- **Live Demo:** https://ahmedznati.github.io/Fleet-ManagerAhmed/
+- **Live Demo:** https://raniakhedri.github.io/Fleet-Manager/
 - **Backend API:** Hosted on Render.com
 - **Repository:** https://github.com/ahmedznati/Fleet-ManagerAhmed
 

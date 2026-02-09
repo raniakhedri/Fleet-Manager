@@ -37,7 +37,8 @@ export async function sendDriverCredentialsEmail(
     throw new Error('Email service not configured');
   }
 
-  const loginUrl = process.env.FRONTEND_URL || 'https://ahmedznati.github.io/Fleet-ManagerAhmed/';
+  // Use FRONTEND_URL from environment. Do not hardcode production URLs here.
+  const loginUrl = process.env.FRONTEND_URL || '';
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@fleetguard.com';
   const senderName = process.env.BREVO_SENDER_NAME || 'FleetGuard';
 

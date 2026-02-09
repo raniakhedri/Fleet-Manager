@@ -19,3 +19,4 @@ Write-Host ""
 
 # Run dev server
 npm.cmd run dev
+

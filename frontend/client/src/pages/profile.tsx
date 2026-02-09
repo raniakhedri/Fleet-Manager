@@ -100,7 +100,7 @@ export default function ProfilePage() {
     
     try {
       const token = localStorage.getItem("token");
-      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
       
       const response = await fetch(`${baseUrl}/change-password`, {
         method: "POST",

@@ -79,9 +79,7 @@ export default function LandingPage() {
                 Commencer Maintenant <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full border-2 border-gold-400 text-gold-700 hover:bg-gold-50 hover:border-gold-500 transition-all duration-300">
-              <Crosshair className="mr-2 w-5 h-5" /> Voir la Démo
-            </Button>
+            
           </div>
           
           {/* Dashboard Preview with elegant frame */}
@@ -91,7 +89,7 @@ export default function LandingPage() {
             <div className="relative rounded-2xl bg-white shadow-2xl border-4 border-gold-200/50 p-4 transform hover:rotate-0 transition-transform duration-500 -rotate-1">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-cream-100 to-cream-200 flex items-center justify-center">
                 <img 
-                  src="/Fleet-Manager/emblem.png" 
+                  src="/Fleet-ManagerAhmed/emblem.png" 
                   alt="Emblème FleetGuard" 
                   className="object-contain h-64 md:h-80 drop-shadow-2xl"
                 />

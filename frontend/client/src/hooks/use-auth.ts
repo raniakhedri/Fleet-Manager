@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }

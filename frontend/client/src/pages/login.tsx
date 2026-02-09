@@ -8,7 +8,7 @@ import { Shield, Loader2, ArrowLeft, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }
@@ -128,16 +128,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 rounded-xl bg-gradient-to-r from-cream-200 to-cream-100 border border-gold-200/50">
-            <p className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
-              <Star className="w-4 h-4 text-gold-500 fill-gold-500" />
-              Comptes de démonstration
-            </p>
-            <div className="space-y-1 text-sm text-gray-600">
-              <p><span className="font-medium text-crimson-600">Admin:</span> rania@admin.com / raniakhedri</p>
-              <p><span className="font-medium text-gold-600">Utilisateur:</span> ahmed@user.com / ahmedznati</p>
-            </div>
-          </div>
+        
         </CardContent>
       </Card>
     </div>

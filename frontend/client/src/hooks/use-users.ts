@@ -82,7 +82,7 @@ export function useUpdateUserRole() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, role }: { id: number; role: "superadmin" | "operateur" | "chauffeur" }) => {
+    mutationFn: async ({ id, role }: { id: string; role: "superadmin" | "operateur" | "chauffeur" }) => {
       const url = buildUrl(api.users.updateRole.path, { id });
       const res = await fetch(getApiUrl(url), {
         method: "PATCH",
@@ -119,7 +119,7 @@ export function useDeleteUser() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const url = buildUrl(api.users.delete.path, { id });
       const res = await fetch(getApiUrl(url), {
         method: "DELETE",

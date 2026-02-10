@@ -90,11 +90,11 @@ export default function UsersPage() {
   const currentUserId = currentUserStr ? JSON.parse(currentUserStr).id : null;
 
   const handleRoleChange = (userId: string, newRole: AppRole) => {
-    updateRoleMutation.mutate({ id: Number(userId), role: newRole });
+    updateRoleMutation.mutate({ id: userId, role: newRole });
   };
 
   const handleDelete = (userId: string) => {
-    deleteMutation.mutate(Number(userId));
+    deleteMutation.mutate(userId);
   };
 
   const handleCreate = () => {

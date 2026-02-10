@@ -602,25 +602,29 @@ export async function registerRoutes(
   });
 
   // ── Nominatim geocoding proxy (avoids CORS issues from GitHub Pages) ──
+  // Use native Node fetch — stored in a variable so esbuild can't mangle the reference
+  const nativeFetch: typeof globalThis.fetch = (Function("return this"))().fetch;
+
   app.get("/api/geocode/reverse", async (req, res) => {
     try {
       const { lat, lon } = req.query;
       if (!lat || !lon) return res.status(400).json({ message: "lat and lon required" });
+      if (!nativeFetch) return res.status(501).json({ message: "fetch not available on this runtime" });
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
       console.log("[geocode/reverse] Fetching:", url);
-      const resp = await globalThis.fetch(url, {
+      const resp = await nativeFetch(url, {
         headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" },
       });
       if (!resp.ok) {
         const text = await resp.text();
-        console.error(`[geocode/reverse] Nominatim returned ${resp.status}:`, text.slice(0, 300));
+        console.error(`[geocode/reverse] Nominatim ${resp.status}:`, text.slice(0, 300));
         return res.status(resp.status).json({ message: `Nominatim error: ${resp.status}` });
       }
       const data = await resp.json();
-      res.json(data);
+      return res.json(data);
     } catch (err: any) {
       console.error("[geocode/reverse] Error:", err?.message || err);
-      res.status(502).json({ message: "Geocoding failed", error: err?.message });
+      if (!res.headersSent) res.status(502).json({ message: "Geocoding failed", error: err?.message });
     }
   });
 
@@ -628,21 +632,22 @@ export async function registerRoutes(
     try {
       const { q } = req.query;
       if (!q) return res.status(400).json({ message: "q required" });
+      if (!nativeFetch) return res.status(501).json({ message: "fetch not available on this runtime" });
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(String(q))}&limit=5`;
       console.log("[geocode/search] Fetching:", url);
-      const resp = await globalThis.fetch(url, {
+      const resp = await nativeFetch(url, {
         headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" },
       });
       if (!resp.ok) {
         const text = await resp.text();
-        console.error(`[geocode/search] Nominatim returned ${resp.status}:`, text.slice(0, 300));
+        console.error(`[geocode/search] Nominatim ${resp.status}:`, text.slice(0, 300));
         return res.status(resp.status).json({ message: `Nominatim error: ${resp.status}` });
       }
       const data = await resp.json();
-      res.json(data);
+      return res.json(data);
     } catch (err: any) {
       console.error("[geocode/search] Error:", err?.message || err);
-      res.status(502).json({ message: "Geocoding failed", error: err?.message });
+      if (!res.headersSent) res.status(502).json({ message: "Geocoding failed", error: err?.message });
     }
   });
 

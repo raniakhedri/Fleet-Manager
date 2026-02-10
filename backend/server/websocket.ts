@@ -2,9 +2,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
-import { log } from "./index";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fleet-manager-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 
 interface AuthenticatedSocket extends WebSocket {
   userId?: number;
@@ -77,7 +76,7 @@ export function setupWebSocket(httpServer: Server) {
 
     ws.isAlive = true;
     clients.add(ws);
-    log(`WS client connected  userId=${ws.userId} role=${ws.userRole}  (total ${clients.size})`, "websocket");
+    console.log(`[websocket] WS client connected  userId=${ws.userId} role=${ws.userRole}  (total ${clients.size})`);
 
     ws.on("pong", () => {
       ws.isAlive = true;
@@ -85,7 +84,7 @@ export function setupWebSocket(httpServer: Server) {
 
     ws.on("close", () => {
       clients.delete(ws);
-      log(`WS client disconnected  userId=${ws.userId}  (total ${clients.size})`, "websocket");
+      console.log(`[websocket] WS client disconnected  userId=${ws.userId}  (total ${clients.size})`);
     });
 
     ws.on("error", () => {
@@ -99,7 +98,7 @@ export function setupWebSocket(httpServer: Server) {
     });
   });
 
-  log("WebSocket server ready on /ws", "websocket");
+  console.log("[websocket] WebSocket server ready on /ws");
 }
 
 /**

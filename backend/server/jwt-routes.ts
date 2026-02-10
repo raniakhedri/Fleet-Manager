@@ -143,7 +143,7 @@ export function registerJWTAuthRoutes(app: Express) {
 
       const token = authHeader.split(" ")[1];
       const jwt = await import("jsonwebtoken");
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "fleetguard-secret-key-2024") as {
+      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "dev-jwt-secret-change-in-production") as {
         userId: number;
         email: string;
       };

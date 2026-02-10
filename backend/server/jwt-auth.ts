@@ -46,9 +46,21 @@ export function isAuthenticatedJWT(
   next();
 }
 
+/**
+ * Map legacy role names to the new 3-role system so that
+ * JWTs issued before the rename still work.
+ */
+function normalizeRole(role?: string): string {
+  if (!role) return "chauffeur";
+  if (role === "admin") return "superadmin";
+  if (role === "user" || role === "driver") return "chauffeur";
+  return role;
+}
+
 export function requireRole(...allowedRoles: string[]) {
   return (req: any, res: Response, next: NextFunction) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    const role = normalizeRole(req.user?.role);
+    if (!req.user || !allowedRoles.includes(role)) {
       return res
         .status(403)
         .json({ message: "Forbidden: insufficient permissions" });

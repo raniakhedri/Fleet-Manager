@@ -2,6 +2,7 @@ services:
   - type: web
     name: fleet-manager-backend
     runtime: node
+    nodeVersion: "20"
     region: oregon
     buildCommand: npm install && npm run build
     startCommand: npm run start

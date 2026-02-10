@@ -23,6 +23,9 @@ export const errorSchemas = {
   notFound: z.object({
     message: z.string(),
   }),
+  badRequest: z.object({
+    message: z.string(),
+  }),
   internal: z.object({
     message: z.string(),
   }),

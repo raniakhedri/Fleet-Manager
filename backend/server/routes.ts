@@ -684,7 +684,7 @@ async function seedUsers() {
             const ahmedHash = await bcrypt.hash("ahmedznati", 10);
             const [newAhmedUser] = await db.insert(users).values({
                 email: "ahmed@driver.com",
-                password: ahmedHash,
+                passwordHash: ahmedHash,
                 firstName: "Ahmed",
                 lastName: "Znati",
             }).returning();

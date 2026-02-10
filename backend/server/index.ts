@@ -97,7 +97,49 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ensure missing tables are created at startup (runtime migration)
+async function ensureSchema() {
+  const { pool } = await import("./db");
+  const client = await pool.connect();
+  try {
+    // Create gps_tracking table if it doesn't exist
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS gps_tracking (
+        id SERIAL PRIMARY KEY,
+        vehicle_id INTEGER NOT NULL UNIQUE REFERENCES vehicles(id),
+        driver_id INTEGER REFERENCES drivers(id),
+        lat DOUBLE PRECISION NOT NULL,
+        lng DOUBLE PRECISION NOT NULL,
+        speed DOUBLE PRECISION DEFAULT 0,
+        heading DOUBLE PRECISION DEFAULT 0,
+        engine_on BOOLEAN DEFAULT false,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log("[schema] ensureSchema completed — gps_tracking table ready");
+  } catch (err) {
+    console.warn("[schema] ensureSchema warning (non-fatal):", err);
+  } finally {
+    client.release();
+  }
+}
+
+// Prevent the entire process from crashing on unhandled errors
+process.on("unhandledRejection", (err) => {
+  console.error("[fatal] Unhandled rejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] Uncaught exception:", err);
+});
+
 (async () => {
+  try {
+    // Run runtime migration before anything else
+    await ensureSchema();
+  } catch (err) {
+    console.warn("[startup] Schema migration failed (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

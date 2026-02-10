@@ -69,8 +69,9 @@ function MapClickHandler({
       const { lat, lng } = e.latlng;
       // Try to get location name via reverse geocoding
       try {
+        const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`
+          `${apiBase}/geocode/reverse?lat=${lat}&lon=${lng}`
         );
         const data = await response.json();
         const locationName = data.address?.city || 

@@ -81,8 +81,9 @@ async function geocodeLocation(locationName: string): Promise<[number, number] |
   
   // Try Nominatim API for Tunisia
   try {
+    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}, Tunisia&limit=1`
+      `${apiBase}/geocode/search?q=${encodeURIComponent(locationName)}, Tunisia`
     );
     const data = await response.json();
     if (data.length > 0) {

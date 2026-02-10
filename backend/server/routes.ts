@@ -601,6 +601,37 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // ── Nominatim geocoding proxy (avoids CORS issues from GitHub Pages) ──
+  app.get("/api/geocode/reverse", async (req, res) => {
+    try {
+      const { lat, lon } = req.query;
+      if (!lat || !lon) return res.status(400).json({ message: "lat and lon required" });
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" },
+      });
+      const data = await resp.json();
+      res.json(data);
+    } catch (err) {
+      res.status(502).json({ message: "Geocoding failed" });
+    }
+  });
+
+  app.get("/api/geocode/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q) return res.status(400).json({ message: "q required" });
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(String(q))}&limit=5`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" },
+      });
+      const data = await resp.json();
+      res.json(data);
+    } catch (err) {
+      res.status(502).json({ message: "Geocoding failed" });
+    }
+  });
+
   // Seed Data
   try {
     await seedDatabase();

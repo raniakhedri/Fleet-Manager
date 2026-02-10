@@ -3,11 +3,13 @@ services:
     name: fleet-manager-backend
     runtime: node
     region: oregon
-    buildCommand: npm install && npx drizzle-kit push && npm run build
+    buildCommand: npm install && npx drizzle-kit push --force && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: FRONTEND_URL
+        value: https://raniakhedri.github.io/Fleet-Manager/
       - key: DATABASE_URL
         value: postgresql://fleet_db_cw9z_user:oy7OZJncHDq5dirgwm5jmOgOIWhTPHcT@dpg-d5qnaqvgi27c73fggkr0-a/fleet_db_cw9z?sslmode=require
       - key: JWT_SECRET

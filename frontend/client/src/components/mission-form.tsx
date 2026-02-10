@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertMissionSchema } from "@shared/schema";
 import { useCreateMission, useUpdateMission, useMissions } from "@/hooks/use-missions";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
@@ -34,8 +33,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Local form type to avoid complex type inference issues
-type MissionFormData = z.infer<typeof insertMissionSchema>;
+// Strict local validation schema for the mission form
+const missionFormSchema = z.object({
+  title: z.string().min(3, "Le titre doit contenir au moins 3 caractères").max(100, "Le titre est trop long"),
+  description: z.string().max(500, "La description est trop longue").optional().nullable(),
+  driverId: z.number({ required_error: "Veuillez sélectionner un chauffeur" }).min(1, "Veuillez sélectionner un chauffeur"),
+  vehicleId: z.number({ required_error: "Veuillez sélectionner un véhicule" }).min(1, "Veuillez sélectionner un véhicule"),
+  endLocation: z.string().min(2, "La destination est requise"),
+  status: z.string().default("pending"),
+  priority: z.enum(["low", "normal", "high", "urgent"], { required_error: "Veuillez sélectionner une priorité" }),
+  coPilot: z.string().max(100, "Nom de co-pilote trop long").optional().nullable(),
+  passengersCount: z.number().int("Doit être un nombre entier").min(1, "Au moins 1 personne").max(100, "Maximum 100 personnes").optional().nullable(),
+  scheduledStart: z.any().optional().nullable(),
+  scheduledEnd: z.any().optional().nullable(),
+}).refine((data) => {
+  if (data.scheduledStart && data.scheduledEnd) {
+    return new Date(data.scheduledEnd) > new Date(data.scheduledStart);
+  }
+  return true;
+}, {
+  message: "La date de fin doit être après la date de début",
+  path: ["scheduledEnd"],
+});
+
+// Local form type
+type MissionFormData = z.infer<typeof missionFormSchema>;
 
 type Mission = {
   id: number;
@@ -80,7 +102,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
   );
 
   const form = useForm<MissionFormData>({
-    resolver: zodResolver(insertMissionSchema) as any,
+    resolver: zodResolver(missionFormSchema) as any,
     defaultValues: mission ? {
       vehicleId: mission.vehicleId,
       driverId: mission.driverId,
@@ -246,7 +268,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
                       <SelectContent>
                         {availableVehicles.map((vehicle: any) => (
                           <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.name} ({vehicle.licensePlate})
+                            {vehicle.name} - {vehicle.licensePlate} ({vehicle.model})
                             {vehicle.id === driverDefaultVehicle ? " ★ par défaut" : ""}
                             {vehicle.status === "on_mission" ? " ⛔ en mission" : ""}
                           </SelectItem>

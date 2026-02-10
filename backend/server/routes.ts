@@ -725,8 +725,8 @@ async function seedDatabase() {
             licensePlate: "AA-123-BB",
             status: "active",
             fuelLevel: 85,
-            lat: 48.8566, // Paris
-            lng: 2.3522
+            lat: null,
+            lng: null
         });
         await storage.createVehicle({
             name: "Van 04",
@@ -734,8 +734,8 @@ async function seedDatabase() {
             licensePlate: "CC-789-DD",
             status: "maintenance",
             fuelLevel: 45,
-            lat: 45.7640, // Lyon
-            lng: 4.8357
+            lat: null,
+            lng: null
         });
         await storage.createVehicle({
             name: "Truck 02",
@@ -743,8 +743,8 @@ async function seedDatabase() {
             licensePlate: "EE-456-FF",
             status: "active",
             fuelLevel: 92,
-            lat: 43.2965, // Marseille
-            lng: 5.3698
+            lat: null,
+            lng: null
         });
     }
 }

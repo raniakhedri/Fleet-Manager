@@ -1,4 +1,5 @@
 import { useDrivers, useDeleteDriver, useUpdateDriver } from "@/hooks/use-drivers";
+import { useVehicles } from "@/hooks/use-vehicles";
 import Layout from "@/components/layout";
 import { useUser } from "@/hooks/use-user";
 import { DriverForm } from "@/components/driver-form";
@@ -19,6 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function DriversPage() {
   const { data: drivers, isLoading } = useDrivers();
+  const { data: vehicles } = useVehicles();
   const deleteMutation = useDeleteDriver();
   const updateMutation = useUpdateDriver();
   const { isAdmin, isOperateur } = useUser();
@@ -121,8 +123,18 @@ export default function DriversPage() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">{driver.licenseNumber}</TableCell>
                     <TableCell>{getStatusBadge(driver.status)}</TableCell>
-                    <TableCell className="text-slate-500">
-                      {driver.assignedVehicleId ? `Véhicule #${driver.assignedVehicleId}` : "Non assigné"}
+                    <TableCell className="text-slate-600">
+                      {driver.assignedVehicleId ? (() => {
+                        const v = vehicles?.find((v: any) => v.id === driver.assignedVehicleId);
+                        return v ? (
+                          <div className="space-y-0.5">
+                            <div className="font-medium text-slate-800">{v.name}</div>
+                            <div className="text-xs text-slate-500">{v.model} • {v.licensePlate}</div>
+                          </div>
+                        ) : `Véhicule #${driver.assignedVehicleId}`;
+                      })() : (
+                        <span className="text-slate-400 italic">Non assigné</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
                       {driver.createdAt ? formatDistanceToNow(new Date(driver.createdAt), { addSuffix: true }) : "Inconnu"}

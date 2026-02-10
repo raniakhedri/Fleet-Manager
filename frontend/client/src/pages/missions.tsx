@@ -1,4 +1,4 @@
-import { useMissions, useUpdateMissionStatus } from "@/hooks/use-missions";
+import { useMissions, useUpdateMissionStatus, useDeleteMission } from "@/hooks/use-missions";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
 import Layout from "@/components/layout";
@@ -8,21 +8,40 @@ import { MissionForm } from "@/components/mission-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play, Users, User } from "lucide-react";
+import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play, Users, User, Edit2, Trash2, MoreHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function MissionsPage() {
   const { data: missions, isLoading } = useMissions();
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
   const updateStatusMutation = useUpdateMissionStatus();
+  const deleteMutation = useDeleteMission();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; title: string } | null>(null);
 
   // Build lookup maps for names
   const driverMap = new Map(drivers?.map(d => [d.id, `${d.firstName} ${d.lastName}`]) || []);
-  const vehicleMap = new Map(vehicles?.map(v => [v.id, `${v.brand} ${v.model} (${v.licensePlate})`]) || []);
+  const vehicleMap = new Map(vehicles?.map(v => [v.id, `${v.name} - ${v.licensePlate} (${v.model})`]) || []);
   const { user, isAdmin, isOperateur, isChauffeur } = useUser();
   const { toast } = useToast();
   const previousMissionsCount = useRef<number>(0);
@@ -204,49 +223,101 @@ export default function MissionsPage() {
                   <div className="text-xs text-slate-500">
                     {vehicleMap.get(mission.vehicleId) || `Véhicule #${mission.vehicleId}`} • {driverMap.get(mission.driverId) || `Chauffeur #${mission.driverId}`}
                   </div>
-                  {mission.status !== 'completed' && mission.status !== 'cancelled' && (
-                    <div className="flex gap-2">
-                      {/* Drivers can start their assigned pending missions */}
-                      {isChauffeur && mission.status === 'pending' && (
-                        <Button 
-                          size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'in_progress' })}
-                        >
-                          <Play className="w-3 h-3 mr-1" />
-                          Démarrer
-                        </Button>
-                      )}
-                      {/* Drivers can complete their in-progress missions */}
-                      {isChauffeur && mission.status === 'in_progress' && (
-                        <Button 
-                          size="sm" 
-                          variant="default"
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}
-                        >
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Terminer
-                        </Button>
-                      )}
-                      {/* Operateur can cancel missions */}
-                      {isOperateur && mission.status === 'pending' && (
-                        <Button 
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'cancelled' })}
-                        >
-                          Annuler
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2 items-center">
+                    {/* Drivers can start their assigned pending missions */}
+                    {isChauffeur && mission.status === 'pending' && (
+                      <Button 
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'in_progress' })}
+                      >
+                        <Play className="w-3 h-3 mr-1" />
+                        Démarrer
+                      </Button>
+                    )}
+                    {/* Drivers can complete their in-progress missions */}
+                    {isChauffeur && mission.status === 'in_progress' && (
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}
+                      >
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Terminer
+                      </Button>
+                    )}
+                    {/* Operateur actions: edit, cancel, delete */}
+                    {isOperateur && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {/* Edit mission (only pending/in_progress) */}
+                          {(mission.status === 'pending' || mission.status === 'in_progress') && (
+                            <MissionForm
+                              mission={mission as any}
+                              trigger={
+                                <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-slate-100">
+                                  <Edit2 className="mr-2 h-4 w-4" /> Modifier
+                                </div>
+                              }
+                            />
+                          )}
+                          {mission.status === 'pending' && (
+                            <DropdownMenuItem
+                              className="text-orange-600 focus:text-orange-600 focus:bg-orange-50 cursor-pointer"
+                              onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'cancelled' })}
+                            >
+                              <XCircle className="mr-2 h-4 w-4" /> Annuler la mission
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                            onClick={() => setDeleteTarget({ id: mission.id, title: mission.title })}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la mission</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer la mission « {deleteTarget?.title} » ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget.id);
+                  setDeleteTarget(null);
+                }
+              }}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </LayoutWrapper>
   );
 }

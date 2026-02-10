@@ -142,8 +142,8 @@ export function useGpsPositions(pollFallback = false) {
       if (!res.ok) throw new Error("Failed to fetch GPS positions");
       return res.json();
     },
-    // Only poll as a safety net; real updates come via WS
-    refetchInterval: pollFallback ? 10_000 : false,
+    // Poll every 5s as fallback when WS is down; real updates come via WS
+    refetchInterval: pollFallback ? 5_000 : false,
   });
 }
 

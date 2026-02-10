@@ -4,6 +4,7 @@ import { useGpsPositions, useGpsWebSocket } from "@/hooks/use-gps-tracking";
 import { useUser } from "@/hooks/use-user";
 import Layout from "@/components/layout";
 import { MapView } from "@/components/map-view";
+import { GpsSimulator } from "@/components/gps-simulator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,10 +13,11 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function LiveMapPage() {
   const { data: vehicles } = useVehicles();
-  const { data: gpsPositions, isLoading: gpsLoading } = useGpsPositions();
   // Open a WebSocket so GPS updates are pushed in real time
   const { status: wsStatus } = useGpsWebSocket();
-  const { isSuperAdmin } = useUser();
+  // Enable polling fallback when WebSocket is disconnected
+  const { data: gpsPositions, isLoading: gpsLoading } = useGpsPositions(wsStatus !== "connected");
+  const { isSuperAdmin, isOperateur } = useUser();
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
   // Merge GPS positions into vehicles for map rendering
@@ -84,8 +86,9 @@ export default function LiveMapPage() {
 
         {/* Map + Vehicle Panel */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ height: "calc(100vh - 14rem)" }}>
-          {/* Vehicle List Panel */}
-          <Card className="border-0 shadow-lg lg:col-span-1 overflow-hidden">
+          {/* Vehicle List Panel + Simulator */}
+          <div className="lg:col-span-1 flex flex-col gap-4 overflow-hidden">
+          <Card className="border-0 shadow-lg overflow-hidden flex-1">
             <CardHeader className="pb-2 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-t-xl">
               <CardTitle className="text-sm font-display flex items-center gap-2">
                 <Car className="w-4 h-4 text-gold-400" />
@@ -93,7 +96,7 @@ export default function LiveMapPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-20rem)]">
+              <ScrollArea className="h-[calc(100vh-28rem)]">
                 <div className="divide-y divide-slate-100">
                   {vehiclesWithGps.map((vehicle: any) => {
                     const gps = (gpsPositions || []).find((g: any) => g.vehicleId === vehicle.id);
@@ -155,6 +158,10 @@ export default function LiveMapPage() {
               </ScrollArea>
             </CardContent>
           </Card>
+
+          {/* GPS Simulator for testing (superadmin / operateur only) */}
+          {(isSuperAdmin || isOperateur) && <GpsSimulator />}
+          </div>
 
           {/* Map */}
           <div className="lg:col-span-3 rounded-xl overflow-hidden shadow-2xl border border-slate-200">

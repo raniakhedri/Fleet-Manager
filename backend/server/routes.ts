@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import https from "https";
 import { storage } from "./storage";
 import { isAuthenticatedJWT, requireRole } from "./jwt-auth";
 import { registerJWTAuthRoutes } from "./jwt-routes";
@@ -602,16 +603,32 @@ export async function registerRoutes(
   });
 
   // ── Nominatim geocoding proxy (avoids CORS issues from GitHub Pages) ──
-  // Helper: fetch a URL using Node's built-in https module (works in all Node versions)
-  function httpsGet(url: string): Promise<string> {
-    const https = require("https");
+  function nominatimGet(targetUrl: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      https.get(url, { headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" } }, (resp: any) => {
-        let data = "";
-        resp.on("data", (chunk: string) => { data += chunk; });
-        resp.on("end", () => resolve(data));
-        resp.on("error", reject);
-      }).on("error", reject);
+      const parsed = new URL(targetUrl);
+      const options = {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "GET",
+        headers: {
+          "User-Agent": "FleetManager/1.0 (fleet-manager-backend)",
+          "Accept": "application/json",
+        },
+      };
+      const req = https.request(options, (resp) => {
+        let body = "";
+        resp.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+        resp.on("end", () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            reject(new Error(`Non-JSON response (${resp.statusCode}): ${body.slice(0, 200)}`));
+          }
+        });
+      });
+      req.on("error", reject);
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error("Nominatim request timeout")); });
+      req.end();
     });
   }
 
@@ -620,8 +637,7 @@ export async function registerRoutes(
       const { lat, lon } = req.query;
       if (!lat || !lon) return res.status(400).json({ message: "lat and lon required" });
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
-      const raw = await httpsGet(url);
-      const data = JSON.parse(raw);
+      const data = await nominatimGet(url);
       res.json(data);
     } catch (err: any) {
       console.error("[geocode/reverse] Error:", err?.message || err);
@@ -634,8 +650,7 @@ export async function registerRoutes(
       const { q } = req.query;
       if (!q) return res.status(400).json({ message: "q required" });
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(String(q))}&limit=5`;
-      const raw = await httpsGet(url);
-      const data = JSON.parse(raw);
+      const data = await nominatimGet(url);
       res.json(data);
     } catch (err: any) {
       console.error("[geocode/search] Error:", err?.message || err);

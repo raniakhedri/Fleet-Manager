@@ -755,15 +755,15 @@ async function seedUsers() {
         const [raniaUser] = await db
             .select()
             .from(users)
-            .where(eq(users.email, "rania@admin.com"));
+            .where(eq(users.email, "ahmed@admin.com"));
 
         if (!raniaUser) {
-            console.log("Creating superadmin user: rania@admin.com");
-            const raniaHash = await bcrypt.hash("raniakhedri", 10);
+            console.log("Creating superadmin user: ahmed@admin.com");
+            const ahmedHash = await bcrypt.hash("ahmedznati", 10);
             await db.insert(users).values({
-                email: "rania@admin.com",
-                passwordHash: raniaHash,
-                firstName: "Rania",
+                email: "ahmed@admin.com",
+                passwordHash: ahmedHash,
+                firstName: "Ahmed",
                 lastName: "Admin",
                 role: "superadmin",
             });

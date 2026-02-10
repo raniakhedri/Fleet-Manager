@@ -2,47 +2,54 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useUpdateGpsPosition } from "@/hooks/use-gps-tracking";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
+import { useMissions } from "@/hooks/use-missions";
 import { useUser } from "@/hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Navigation, MapPin, Gauge, Power, Radio, RadioTower, AlertTriangle } from "lucide-react";
+import { Navigation, MapPin, Gauge, Radio, RadioTower, AlertTriangle } from "lucide-react";
 
 /**
  * GPS Tracker panel for drivers.
- * Uses the browser Geolocation API to continuously send the driver's position
- * to the backend, which broadcasts it via WebSocket to operateurs/superadmins.
+ * Automatically starts/stops GPS tracking when the driver starts/ends a mission.
+ * No manual toggle — tracking is tied to mission status.
  */
 export function GpsTracker() {
   const { user } = useUser();
   const { data: vehicles } = useVehicles();
   const { data: drivers } = useDrivers();
+  const { data: missions } = useMissions();
   const updateGps = useUpdateGpsPosition();
 
-  const [tracking, setTracking] = useState(false);
-  const [engineOn, setEngineOn] = useState(true);
   const [lastPosition, setLastPosition] = useState<{ lat: number; lng: number; speed: number; heading: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sendCount, setSendCount] = useState(0);
   const watchIdRef = useRef<number | null>(null);
+  const trackingRef = useRef(false);
 
-  // Find the driver and their assigned vehicle
+  // Find the driver and their in-progress missions
   const currentDriver = drivers?.find((d: any) => d.email === user?.email);
-  const assignedVehicle = vehicles?.find((v: any) => v.currentDriverId === currentDriver?.id);
+  const myActiveMissions = (missions || []).filter(
+    (m: any) => m.driverId === currentDriver?.id && m.status === "in_progress"
+  );
+  const hasActiveMission = myActiveMissions.length > 0;
+
+  // Find the vehicle for the active mission
+  const activeMission = myActiveMissions[0];
+  const missionVehicle = activeMission
+    ? vehicles?.find((v: any) => v.id === activeMission.vehicleId)
+    : null;
 
   const sendPosition = useCallback(
     (position: GeolocationPosition) => {
-      if (!assignedVehicle) return;
+      if (!missionVehicle) return;
 
       const data = {
-        vehicleId: assignedVehicle.id,
+        vehicleId: missionVehicle.id,
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         speed: (position.coords.speed ?? 0) * 3.6, // m/s → km/h
         heading: position.coords.heading ?? 0,
-        engineOn,
+        engineOn: true,
       };
 
       setLastPosition({
@@ -56,48 +63,45 @@ export function GpsTracker() {
       setSendCount((c) => c + 1);
       setError(null);
     },
-    [assignedVehicle, engineOn, updateGps],
+    [missionVehicle, updateGps],
   );
 
-  const startTracking = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("La géolocalisation n'est pas supportée par votre navigateur.");
-      return;
-    }
-    if (!assignedVehicle) {
-      setError("Aucun véhicule ne vous est affecté.");
-      return;
-    }
+  // Auto-start/stop tracking based on mission status
+  useEffect(() => {
+    if (hasActiveMission && missionVehicle && !trackingRef.current) {
+      // Start tracking
+      if (!navigator.geolocation) {
+        setError("La géolocalisation n'est pas supportée par votre navigateur.");
+        return;
+      }
 
-    setError(null);
-    setTracking(true);
+      trackingRef.current = true;
+      setError(null);
 
-    // Get an immediate position
-    navigator.geolocation.getCurrentPosition(sendPosition, (err) => {
-      setError(`Erreur GPS : ${err.message}`);
-    });
-
-    // Then watch for continuous updates
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      sendPosition,
-      (err) => {
+      navigator.geolocation.getCurrentPosition(sendPosition, (err) => {
         setError(`Erreur GPS : ${err.message}`);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 15000,
-      },
-    );
-  }, [assignedVehicle, sendPosition]);
+      });
 
-  const stopTracking = useCallback(() => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        sendPosition,
+        (err) => {
+          setError(`Erreur GPS : ${err.message}`);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 5000,
+          timeout: 15000,
+        },
+      );
+    } else if (!hasActiveMission && trackingRef.current) {
+      // Stop tracking
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      trackingRef.current = false;
     }
-    setTracking(false);
-  }, []);
+  }, [hasActiveMission, missionVehicle, sendPosition]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -108,8 +112,11 @@ export function GpsTracker() {
     };
   }, []);
 
-  // If no vehicle is assigned, show a message
-  if (!assignedVehicle) {
+  // Don't render if no driver record
+  if (!currentDriver) return null;
+
+  // No active mission — show idle message
+  if (!hasActiveMission) {
     return (
       <Card className="border-none shadow-md bg-gradient-to-br from-slate-50 to-white">
         <CardHeader className="pb-2">
@@ -119,10 +126,10 @@ export function GpsTracker() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-slate-500 text-sm py-4">
-            <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-amber-400" />
-            <p>Aucun véhicule ne vous est affecté.</p>
-            <p className="text-xs mt-1">Contactez votre opérateur pour qu'il vous assigne un véhicule.</p>
+          <div className="text-center text-slate-500 text-sm py-3">
+            <Radio className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+            <p>GPS inactif — pas de mission en cours.</p>
+            <p className="text-xs mt-1">Le suivi démarre automatiquement lorsque vous lancez une mission.</p>
           </div>
         </CardContent>
       </Card>
@@ -135,40 +142,16 @@ export function GpsTracker() {
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <RadioTower className="w-4 h-4 text-blue-600" />
-            Suivi GPS — {assignedVehicle.name}
+            Suivi GPS — {missionVehicle?.name || "Véhicule"}
           </CardTitle>
-          <Badge
-            className={
-              tracking
-                ? "bg-emerald-500/15 text-emerald-700 border-0 animate-pulse"
-                : "bg-slate-200 text-slate-500 border-0"
-            }
-          >
-            {tracking ? "En cours" : "Arrêté"}
+          <Badge className="bg-emerald-500/15 text-emerald-700 border-0 animate-pulse">
+            En cours
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Toggle tracking */}
-        <div className="flex items-center justify-between">
-          <Button
-            onClick={tracking ? stopTracking : startTracking}
-            className={tracking ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
-          >
-            <Radio className="w-4 h-4 mr-2" />
-            {tracking ? "Arrêter le suivi" : "Démarrer le suivi"}
-          </Button>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="engine-toggle"
-              checked={engineOn}
-              onCheckedChange={setEngineOn}
-            />
-            <Label htmlFor="engine-toggle" className="text-xs text-slate-600">
-              <Power className="w-3 h-3 inline mr-1" />
-              Moteur
-            </Label>
-          </div>
+      <CardContent className="space-y-3">
+        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+          Mission : <strong>{activeMission?.title}</strong>
         </div>
 
         {/* Position info */}
@@ -192,6 +175,13 @@ export function GpsTracker() {
               <Radio className="w-4 h-4 text-purple-500" />
               <span>{sendCount} envois</span>
             </div>
+          </div>
+        )}
+
+        {!lastPosition && !error && (
+          <div className="text-center text-slate-400 text-xs py-2">
+            <Radio className="w-4 h-4 mx-auto mb-1 animate-pulse" />
+            Acquisition du signal GPS...
           </div>
         )}
 

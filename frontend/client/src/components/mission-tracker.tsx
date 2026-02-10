@@ -127,6 +127,8 @@ interface Mission {
   priority: string;
   vehicleId: number;
   driverId: number;
+  coPilot?: string | null;
+  passengersCount?: number | null;
   scheduledStart?: Date | null;
   scheduledEnd?: Date | null;
 }
@@ -256,17 +258,25 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
     };
   }, []);
 
-  // Handle mission start
+  // Handle mission start — auto-start GPS tracking
   const handleStart = () => {
-    startTracking();
+    startTracking(); // GPS tracking starts automatically
     onStart();
   };
 
-  // Handle mission complete
+  // Handle mission complete — stop GPS tracking
   const handleComplete = () => {
     stopTracking();
     onComplete();
   };
+
+  // Auto-start tracking if mission is already in progress (e.g. page reload)
+  useEffect(() => {
+    if (mission.status === "in_progress" && !isTracking) {
+      startTracking();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mission.status]);
 
   // Calculate map bounds
   const mapBounds = initialPosition && endCoords 
@@ -401,6 +411,25 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
               <p className="text-base font-medium text-slate-700">{mission.endLocation}</p>
             </div>
           </div>
+
+          {/* Co-pilot & Passengers */}
+          {(mission.coPilot || (mission.passengersCount && mission.passengersCount > 1)) && (
+            <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap gap-4 text-sm">
+              {mission.coPilot && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="text-base">👤</span>
+                  <span>Co-pilote : <strong>{mission.coPilot}</strong></span>
+                </div>
+              )}
+              {mission.passengersCount && mission.passengersCount > 0 && (
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="text-base">👥</span>
+                  <span>{mission.passengersCount} personne(s) à bord</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {driverPosition && (
             <div className="mt-3 pt-3 border-t border-slate-200">
               <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -440,27 +469,6 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
 
           {isInProgress && (
             <div className="space-y-3">
-              {!isTracking && (
-                <Button 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={startTracking}
-                >
-                  <Navigation className="w-4 h-4 mr-2" />
-                  Activer le GPS
-                </Button>
-              )}
-              
-              {isTracking && (
-                <Button 
-                  variant="outline"
-                  className="w-full"
-                  onClick={stopTracking}
-                >
-                  <Square className="w-4 h-4 mr-2" />
-                  Arrêter le suivi GPS
-                </Button>
-              )}
-
               <Button 
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-lg py-6"
                 onClick={handleComplete}

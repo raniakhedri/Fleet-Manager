@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertMissionSchema } from "@shared/schema";
-import { useCreateMission, useUpdateMission } from "@/hooks/use-missions";
+import { useCreateMission, useUpdateMission, useMissions } from "@/hooks/use-missions";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ type Mission = {
   endLocation: string;
   status: string;
   priority: string;
+  coPilot: string | null;
+  passengersCount: number | null;
   scheduledStart: Date | null;
   scheduledEnd: Date | null;
   [key: string]: any;
@@ -62,8 +64,20 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
   const updateMutation = useUpdateMission();
   const { data: vehicles } = useVehicles();
   const { data: drivers } = useDrivers();
+  const { data: allMissions } = useMissions();
 
   const isEditing = !!mission;
+
+  // Vehicles that are NOT currently on an active mission (pending or in_progress)
+  const busyVehicleIds = new Set(
+    (allMissions || [])
+      .filter((m: any) => m.status === 'in_progress' || m.status === 'pending')
+      .map((m: any) => m.vehicleId)
+  );
+  // When editing, allow the mission's own vehicle to stay in the list
+  const availableVehicles = (vehicles || []).filter(
+    (v: any) => !busyVehicleIds.has(v.id) || (isEditing && mission?.vehicleId === v.id)
+  );
 
   const form = useForm<MissionFormData>({
     resolver: zodResolver(insertMissionSchema) as any,
@@ -75,6 +89,8 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
       endLocation: mission.endLocation,
       status: mission.status as any,
       priority: mission.priority as any,
+      coPilot: mission.coPilot || "",
+      passengersCount: mission.passengersCount ?? 1,
       scheduledStart: mission.scheduledStart ? new Date(mission.scheduledStart).toISOString().slice(0, 16) : null,
       scheduledEnd: mission.scheduledEnd ? new Date(mission.scheduledEnd).toISOString().slice(0, 16) : null,
     } : {
@@ -85,10 +101,28 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
       endLocation: "",
       status: "pending",
       priority: "normal",
+      coPilot: "",
+      passengersCount: 1,
       scheduledStart: null,
       scheduledEnd: null,
     },
   });
+
+  // When a driver is selected, auto-select their default vehicle if available
+  const selectedDriverId = form.watch("driverId");
+  const selectedDriver = drivers?.find((d: any) => d.id === selectedDriverId);
+  const driverDefaultVehicle = selectedDriver?.assignedVehicleId;
+
+  // Auto-fill vehicle when driver changes (only for new missions)
+  const handleDriverChange = (driverId: number) => {
+    form.setValue("driverId", driverId);
+    if (!isEditing) {
+      const driver = drivers?.find((d: any) => d.id === driverId);
+      if (driver?.assignedVehicleId && !busyVehicleIds.has(driver.assignedVehicleId)) {
+        form.setValue("vehicleId", driver.assignedVehicleId);
+      }
+    }
+  };
 
   const onSubmit = async (data: MissionFormData) => {
     try {
@@ -98,7 +132,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
         driverId: data.driverId,
         title: data.title,
         endLocation: data.endLocation,
-        status: isEditing ? data.status : "pending", // Default to pending for new missions, admin can't change status
+        status: isEditing ? data.status : "pending",
         priority: data.priority,
       };
 
@@ -106,6 +140,8 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
       if (data.description) submitData.description = data.description;
       if (data.scheduledStart) submitData.scheduledStart = data.scheduledStart;
       if (data.scheduledEnd) submitData.scheduledEnd = data.scheduledEnd;
+      if (data.coPilot) submitData.coPilot = data.coPilot;
+      if (data.passengersCount && data.passengersCount > 0) submitData.passengersCount = data.passengersCount;
 
       if (isEditing && mission) {
         await updateMutation.mutateAsync({ id: mission.id, ...submitData });
@@ -172,36 +208,11 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="vehicleId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Véhicule</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un véhicule" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {vehicles?.map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.name} ({vehicle.licensePlate})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="driverId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Chauffeur</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
+                    <Select onValueChange={(val) => handleDriverChange(parseInt(val))} value={field.value?.toString()}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Sélectionner un chauffeur" />
@@ -215,6 +226,39 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="vehicleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Véhicule {driverDefaultVehicle ? "" : ""}</FormLabel>
+                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un véhicule" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableVehicles.map((vehicle: any) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                            {vehicle.name} ({vehicle.licensePlate})
+                            {vehicle.id === driverDefaultVehicle ? " ★ par défaut" : ""}
+                            {vehicle.status === "on_mission" ? " ⛔ en mission" : ""}
+                          </SelectItem>
+                        ))}
+                        {availableVehicles.length === 0 && (
+                          <SelectItem value="none" disabled>Aucun véhicule disponible</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {driverDefaultVehicle && busyVehicleIds.has(driverDefaultVehicle) && (
+                      <p className="text-xs text-amber-600 mt-1">⚠ Le véhicule par défaut est en mission</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -276,6 +320,48 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
                 }</span></p>
               </div>
             )}
+
+            {/* Co-pilot & Passengers */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="coPilot"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Co-pilote (Optionnel)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nom du co-pilote"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="passengersCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de personnes</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        {...field}
+                        value={field.value ?? 1}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

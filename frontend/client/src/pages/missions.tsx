@@ -1,5 +1,6 @@
 import { useMissions, useUpdateMissionStatus } from "@/hooks/use-missions";
 import { useDrivers } from "@/hooks/use-drivers";
+import { useVehicles } from "@/hooks/use-vehicles";
 import Layout from "@/components/layout";
 import UserLayout from "@/components/user-layout";
 import { useUser } from "@/hooks/use-user";
@@ -7,7 +8,7 @@ import { MissionForm } from "@/components/mission-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play } from "lucide-react";
+import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play, Users, User } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +17,12 @@ import { useEffect, useRef } from "react";
 export default function MissionsPage() {
   const { data: missions, isLoading } = useMissions();
   const { data: drivers } = useDrivers();
+  const { data: vehicles } = useVehicles();
   const updateStatusMutation = useUpdateMissionStatus();
+
+  // Build lookup maps for names
+  const driverMap = new Map(drivers?.map(d => [d.id, `${d.firstName} ${d.lastName}`]) || []);
+  const vehicleMap = new Map(vehicles?.map(v => [v.id, `${v.brand} ${v.model} (${v.licensePlate})`]) || []);
   const { user, isAdmin, isOperateur, isChauffeur } = useUser();
   const { toast } = useToast();
   const previousMissionsCount = useRef<number>(0);
@@ -177,9 +183,26 @@ export default function MissionsPage() {
                   </div>
                 )}
 
+                {((mission as any).coPilot || (mission as any).passengersCount) && (
+                  <div className="flex items-center gap-4 text-sm text-slate-600">
+                    {(mission as any).coPilot && (
+                      <span className="flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        Co-pilote : {(mission as any).coPilot}
+                      </span>
+                    )}
+                    {(mission as any).passengersCount && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5 text-slate-400" />
+                        {(mission as any).passengersCount} passager{(mission as any).passengersCount > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-3 border-t">
                   <div className="text-xs text-slate-500">
-                    Véhicule #{mission.vehicleId} • Chauffeur #{mission.driverId}
+                    {vehicleMap.get(mission.vehicleId) || `Véhicule #${mission.vehicleId}`} • {driverMap.get(mission.driverId) || `Chauffeur #${mission.driverId}`}
                   </div>
                   {mission.status !== 'completed' && mission.status !== 'cancelled' && (
                     <div className="flex gap-2">

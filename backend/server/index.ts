@@ -116,7 +116,21 @@ async function ensureSchema() {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
-    console.log("[schema] ensureSchema completed — gps_tracking table ready");
+
+    // Add co_pilot and passengers_count columns to missions if they don't exist
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='missions' AND column_name='co_pilot') THEN
+          ALTER TABLE missions ADD COLUMN co_pilot TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='missions' AND column_name='passengers_count') THEN
+          ALTER TABLE missions ADD COLUMN passengers_count INTEGER DEFAULT 1;
+        END IF;
+      END $$;
+    `);
+
+    console.log("[schema] ensureSchema completed — gps_tracking + mission columns ready");
   } catch (err) {
     console.warn("[schema] ensureSchema warning (non-fatal):", err);
   } finally {

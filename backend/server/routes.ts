@@ -413,7 +413,31 @@ export async function registerRoutes(
   app.post(api.missions.create.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.missions.create.input.parse(req.body);
+      
+      // Check if the vehicle is already on an active mission
+      const allMissions = await storage.getMissions();
+      const vehicleInUse = allMissions.some(
+        (m: any) => m.vehicleId === input.vehicleId && (m.status === 'in_progress' || m.status === 'pending')
+      );
+      if (vehicleInUse) {
+        return res.status(400).json({ message: "Ce véhicule est déjà affecté à une mission en cours ou en attente" });
+      }
+
+      // Check if the driver already has an active mission
+      const driverBusy = allMissions.some(
+        (m: any) => m.driverId === input.driverId && m.status === 'in_progress'
+      );
+      if (driverBusy) {
+        return res.status(400).json({ message: "Ce chauffeur a déjà une mission en cours" });
+      }
+
       const mission = await storage.createMission(input);
+
+      // Assign the vehicle to the driver for this mission
+      await db.update(vehicles)
+        .set({ currentDriverId: input.driverId })
+        .where(eq(vehicles.id, input.vehicleId));
+
       res.status(201).json(mission);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -442,12 +466,29 @@ export async function registerRoutes(
   app.patch(api.missions.updateStatus.path, isAuthenticatedJWT, async (req, res) => {
     try {
       const input = api.missions.updateStatus.input.parse(req.body);
+      const missionId = Number(req.params.id);
+
       const mission = await storage.updateMissionStatus(
-        Number(req.params.id), 
+        missionId,
         input.status,
         input.notes
       );
       if (!mission) return res.status(404).json({ message: "Mission not found" });
+
+      // When the driver starts the mission → mark vehicle as on_mission
+      if (input.status === 'in_progress') {
+        await db.update(vehicles)
+          .set({ status: 'on_mission', currentDriverId: mission.driverId })
+          .where(eq(vehicles.id, mission.vehicleId));
+      }
+
+      // When the mission ends → release the vehicle back to active
+      if (input.status === 'completed' || input.status === 'cancelled') {
+        await db.update(vehicles)
+          .set({ status: 'active' })
+          .where(eq(vehicles.id, mission.vehicleId));
+      }
+
       res.json(mission);
     } catch (err) {
       res.status(400).json({ message: "Invalid input" });

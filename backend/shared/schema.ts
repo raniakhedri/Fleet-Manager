@@ -58,6 +58,8 @@ export const missions = pgTable("missions", {
   endLng: doublePrecision("end_lng"),
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
   priority: text("priority").default("normal"), // low, normal, high, urgent
+  coPilot: text("co_pilot"), // Name of the co-pilot (passenger sitting with the driver)
+  passengersCount: integer("passengers_count").default(1), // Number of people in the fleet
   scheduledStart: timestamp("scheduled_start"),
   actualStart: timestamp("actual_start"),
   scheduledEnd: timestamp("scheduled_end"),
@@ -186,6 +188,8 @@ export const insertMissionSchema = createInsertSchema(missions, {
   endLng: z.number().optional().nullable(),
   distance: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
+  coPilot: z.string().optional().nullable(),
+  passengersCount: z.number().int().min(1).optional().nullable(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
 
 // === EXPLICIT API CONTRACT TYPES ===

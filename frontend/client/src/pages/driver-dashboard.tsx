@@ -213,6 +213,18 @@ export default function DriverDashboard() {
                           </div>
                         )}
 
+                        {/* Co-pilot & Passengers info */}
+                        {((mission as any).coPilot || ((mission as any).passengersCount && (mission as any).passengersCount > 1)) && (
+                          <div className="flex flex-wrap gap-3 text-xs text-slate-600 bg-blue-50 p-2 rounded">
+                            {(mission as any).coPilot && (
+                              <span>👤 Co-pilote : <strong>{(mission as any).coPilot}</strong></span>
+                            )}
+                            {(mission as any).passengersCount > 0 && (
+                              <span>👥 {(mission as any).passengersCount} personne(s)</span>
+                            )}
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2">
                           <Button 
                             variant="outline"

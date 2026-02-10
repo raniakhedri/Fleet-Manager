@@ -642,35 +642,75 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
-  // ── Nominatim geocoding proxy (avoids CORS issues from GitHub Pages) ──
-  // Use child_process.execSync with curl — 100% reliable on Render's Linux runtime
-  const { execSync } = require("child_process");
+  // ── Geocoding proxy (avoids CORS issues from GitHub Pages) ──
+  // Use Node's native https module — no curl dependency
+  const nodeHttps = require("https");
 
-  function nominatimRequest(targetUrl: string): Promise<any> {
+  function httpsGetJson(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      try {
-        const result = execSync(
-          `curl -sS -H "User-Agent: FleetManager/1.0" --max-time 10 "${targetUrl}"`,
-          { encoding: "utf-8", timeout: 15000 }
-        );
-        console.log(`[geocode] OK: ${targetUrl.slice(0, 80)}...`);
-        resolve(JSON.parse(result));
-      } catch (err: any) {
-        console.error("[geocode] curl error:", err?.message?.slice(0, 200));
-        reject(new Error(err?.message || "Geocoding request failed"));
-      }
+      const req = nodeHttps.get(url, {
+        headers: { "User-Agent": "FleetManager/1.0 (fleet-manager-backend)" },
+        timeout: 10000,
+      }, (resp: any) => {
+        let body = "";
+        resp.on("data", (chunk: string) => { body += chunk; });
+        resp.on("end", () => {
+          try {
+            console.log(`[geocode] OK ${resp.statusCode}: ${url.slice(0, 80)}...`);
+            resolve(JSON.parse(body));
+          } catch {
+            reject(new Error("Invalid JSON from geocoding service"));
+          }
+        });
+      });
+      req.on("error", (err: any) => reject(err));
+      req.on("timeout", () => { req.destroy(); reject(new Error("Geocoding request timeout")); });
     });
+  }
+
+  // Convert Photon GeoJSON feature → Nominatim-like response
+  function photonToNominatim(feature: any): any {
+    const props = feature.properties || {};
+    const coords = feature.geometry?.coordinates || [0, 0];
+    const parts = [props.name, props.housenumber, props.street, props.district, props.city, props.state, props.country].filter(Boolean);
+    return {
+      display_name: parts.join(", ") || "Lieu inconnu",
+      lat: String(coords[1]),
+      lon: String(coords[0]),
+      address: {
+        road: props.street,
+        house_number: props.housenumber,
+        city: props.city,
+        town: props.city,
+        state: props.state,
+        country: props.country,
+        postcode: props.postcode,
+      },
+    };
   }
 
   app.get("/api/geocode/reverse", async (req, res) => {
     try {
       const { lat, lon } = req.query;
       if (!lat || !lon) return res.status(400).json({ message: "lat and lon required" });
+
+      // Try Photon first (cloud-friendly, same OSM data)
+      try {
+        const photonUrl = `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}`;
+        const photonData = await httpsGetJson(photonUrl);
+        if (photonData.features && photonData.features.length > 0) {
+          return res.json(photonToNominatim(photonData.features[0]));
+        }
+      } catch (photonErr: any) {
+        console.warn("[geocode] Photon reverse failed, trying Nominatim:", photonErr?.message);
+      }
+
+      // Fallback to Nominatim
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`;
-      const data = await nominatimRequest(url);
+      const data = await httpsGetJson(url);
       return res.json(data);
     } catch (err: any) {
-      console.error("[geocode/reverse] Error:", err?.message || err);
+      console.error("[geocode/reverse] All providers failed:", err?.message || err);
       if (!res.headersSent) res.status(502).json({ message: "Geocoding failed", error: err?.message });
     }
   });
@@ -679,11 +719,24 @@ export async function registerRoutes(
     try {
       const { q } = req.query;
       if (!q) return res.status(400).json({ message: "q required" });
+
+      // Try Photon first
+      try {
+        const photonUrl = `https://photon.komoot.io/api?q=${encodeURIComponent(String(q))}&limit=5`;
+        const photonData = await httpsGetJson(photonUrl);
+        if (photonData.features && photonData.features.length > 0) {
+          return res.json(photonData.features.map(photonToNominatim));
+        }
+      } catch (photonErr: any) {
+        console.warn("[geocode] Photon search failed, trying Nominatim:", photonErr?.message);
+      }
+
+      // Fallback to Nominatim
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(String(q))}&limit=5`;
-      const data = await nominatimRequest(url);
+      const data = await httpsGetJson(url);
       return res.json(data);
     } catch (err: any) {
-      console.error("[geocode/search] Error:", err?.message || err);
+      console.error("[geocode/search] All providers failed:", err?.message || err);
       if (!res.headersSent) res.status(502).json({ message: "Geocoding failed", error: err?.message });
     }
   });

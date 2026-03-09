@@ -239,7 +239,7 @@ export const api = {
         path: '/api/users',
         input: z.object({
             email: z.string().email(),
-            password: z.string().min(6),
+            password: z.string().min(6).optional(),
             firstName: z.string().optional(),
             lastName: z.string().optional(),
             role: z.enum(['superadmin', 'operateur', 'chauffeur']),

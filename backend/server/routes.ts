@@ -564,10 +564,15 @@ export async function registerRoutes(
     res.json(allUsers);
   });
 
-  // Create a new user (superadmin only)
+  // Create a new user (superadmin only — only superadmin or operateur roles allowed)
   app.post(api.users.create.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res: any) => {
     try {
       const input = api.users.create.input.parse(req.body);
+
+      // Only allow creating superadmin or operateur (chauffeurs are created via Chauffeurs page)
+      if (input.role === 'chauffeur') {
+        return res.status(400).json({ message: "Les chauffeurs doivent être créés depuis la page Chauffeurs" });
+      }
 
       // Check if user already exists
       const existing = await db.select().from(users).where(eq(users.email, input.email));
@@ -575,7 +580,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
       }
 
-      const passwordHash = await bcrypt.hash(input.password, 10);
+      // Generate random password (like driver creation)
+      const password = generateRandomPassword();
+      const passwordHash = await bcrypt.hash(password, 10);
 
       const [newUser] = await db.insert(users).values({
         email: input.email,
@@ -585,6 +592,20 @@ export async function registerRoutes(
         role: input.role,
       }).returning();
 
+      // Send credentials email
+      let emailSent = false;
+      try {
+        await sendDriverCredentialsEmail(
+          input.email,
+          [input.firstName, input.lastName].filter(Boolean).join(' ') || input.email,
+          password
+        );
+        emailSent = true;
+        console.log(`[USER] Created user and sent credentials to ${input.email}`);
+      } catch (emailError) {
+        console.error('[USER] Failed to send email:', emailError);
+      }
+
       res.status(201).json({
         id: newUser.id,
         email: newUser.email,
@@ -592,6 +613,8 @@ export async function registerRoutes(
         lastName: newUser.lastName,
         role: newUser.role,
         createdAt: newUser.createdAt,
+        temporaryPassword: password,
+        emailSent,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {

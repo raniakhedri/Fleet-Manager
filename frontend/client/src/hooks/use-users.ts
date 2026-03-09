@@ -42,10 +42,9 @@ export function useCreateUser() {
   return useMutation({
     mutationFn: async (data: {
       email: string;
-      password: string;
       firstName?: string;
       lastName?: string;
-      role: "superadmin" | "operateur" | "chauffeur";
+      role: "superadmin" | "operateur";
     }) => {
       const res = await fetch(getApiUrl(api.users.create.path), {
         method: "POST",
@@ -59,12 +58,8 @@ export function useCreateUser() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast({
-        title: "Utilisateur créé",
-        description: "Le nouvel utilisateur a été créé avec succès.",
-      });
     },
     onError: (error: Error) => {
       toast({

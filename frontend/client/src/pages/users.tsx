@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, Shield, UserCircle, Users, AlertTriangle, UserPlus } from "lucide-react";
+import { Trash2, Shield, UserCircle, Users, AlertTriangle, UserPlus, Copy, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -77,9 +77,10 @@ export default function UsersPage() {
   const deleteMutation = useDeleteUser();
   const createMutation = useCreateUser();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string; emailSent: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",
-    password: "",
     firstName: "",
     lastName: "",
     role: "operateur" as AppRole,
@@ -98,13 +99,29 @@ export default function UsersPage() {
   };
 
   const handleCreate = () => {
-    if (!newUser.email || !newUser.password) return;
+    if (!newUser.email) return;
     createMutation.mutate(newUser, {
-      onSuccess: () => {
+      onSuccess: (data: any) => {
         setCreateOpen(false);
-        setNewUser({ email: "", password: "", firstName: "", lastName: "", role: "operateur" });
+        setNewUser({ email: "", firstName: "", lastName: "", role: "operateur" });
+        if (data?.temporaryPassword) {
+          setCreatedCredentials({
+            email: data.email,
+            password: data.temporaryPassword,
+            emailSent: data.emailSent ?? false,
+          });
+          setCopied(false);
+        }
       },
     });
+  };
+
+  const handleCopyPassword = () => {
+    if (createdCredentials) {
+      navigator.clipboard.writeText(createdCredentials.password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const getRoleBadge = (role: string) => {
@@ -144,7 +161,7 @@ export default function UsersPage() {
               <DialogHeader>
                 <DialogTitle>Nouvel Utilisateur</DialogTitle>
                 <DialogDescription>
-                  Créez un compte pour un opérateur, chauffeur ou super admin.
+                  Créez un compte pour un opérateur ou super admin. Un mot de passe aléatoire sera généré et envoyé par email.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -180,17 +197,6 @@ export default function UsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Mot de passe *</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Minimum 6 caractères"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="role">Rôle *</Label>
                   <Select
                     value={newUser.role}
@@ -202,7 +208,6 @@ export default function UsersPage() {
                     <SelectContent>
                       <SelectItem value="superadmin">Super Admin</SelectItem>
                       <SelectItem value="operateur">Opérateur</SelectItem>
-                      <SelectItem value="chauffeur">Chauffeur</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -213,9 +218,58 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  disabled={!newUser.email || !newUser.password || createMutation.isPending}
+                  disabled={!newUser.email || createMutation.isPending}
                 >
                   {createMutation.isPending ? "Création..." : "Créer l'utilisateur"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Temporary Password Dialog */}
+          <Dialog open={!!createdCredentials} onOpenChange={(open) => { if (!open) setCreatedCredentials(null); }}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                  <Check className="w-5 h-5" />
+                  Utilisateur créé avec succès
+                </DialogTitle>
+                <DialogDescription>
+                  {createdCredentials?.emailSent
+                    ? "Les identifiants ont été envoyés par email. Voici le mot de passe temporaire :"
+                    : "L'email n'a pas pu être envoyé. Veuillez communiquer ces identifiants manuellement :"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-4">
+                <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">Email</Label>
+                    <p className="font-mono text-sm font-medium">{createdCredentials?.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Mot de passe temporaire</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="flex-1 bg-white border rounded px-3 py-2 font-mono text-sm font-bold tracking-wider">
+                        {createdCredentials?.password}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyPassword}
+                        className="shrink-0"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                  ⚠️ Ce mot de passe ne sera plus affiché après fermeture. Assurez-vous de le copier.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setCreatedCredentials(null)}>
+                  Fermer
                 </Button>
               </DialogFooter>
             </DialogContent>

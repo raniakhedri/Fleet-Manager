@@ -629,17 +629,23 @@ export async function registerRoutes(
 
   // Delete user (superadmin only)
   app.delete(api.users.delete.path, isAuthenticatedJWT, requireRole("superadmin"), async (req: any, res) => {
-    const userId = req.params.id;
-    
-    // Prevent deleting yourself
-    if (userId === req.user.userId) {
-      return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+    try {
+      const userId = req.params.id;
+
+      // Prevent deleting yourself
+      if (userId === req.user.userId) {
+        return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" });
+      }
+
+      // Delete related records — clear FK references in drivers table first
+      await db.update(drivers).set({ userId: null }).where(eq(drivers.userId, userId));
+      await db.delete(userRoles).where(eq(userRoles.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
+      res.status(204).send();
+    } catch (err: any) {
+      console.error("[DELETE USER] Error:", err?.message || err);
+      res.status(500).json({ message: "Erreur lors de la suppression de l'utilisateur" });
     }
-    
-    // Delete related records
-    await db.delete(userRoles).where(eq(userRoles.userId, userId));
-    await db.delete(users).where(eq(users.id, userId));
-    res.status(204).send();
   });
 
   // ── Geocoding proxy (avoids CORS issues from GitHub Pages) ──

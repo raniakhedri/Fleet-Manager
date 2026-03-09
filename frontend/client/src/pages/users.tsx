@@ -353,7 +353,6 @@ export default function UsersPage() {
                               <SelectContent>
                                 <SelectItem value="superadmin">Super Admin</SelectItem>
                                 <SelectItem value="operateur">Opérateur</SelectItem>
-                                <SelectItem value="chauffeur">Chauffeur</SelectItem>
                               </SelectContent>
                             </Select>
                           )}

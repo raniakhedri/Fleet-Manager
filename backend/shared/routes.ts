@@ -226,7 +226,7 @@ export const api = {
         method: 'PATCH' as const,
         path: '/api/users/:id/role',
         input: z.object({
-            role: z.enum(['superadmin', 'operateur', 'chauffeur']),
+            role: z.enum(['superadmin', 'operateur']),
         }),
         responses: {
             200: z.custom<typeof auth.users.$inferSelect>(),
@@ -241,7 +241,7 @@ export const api = {
             email: z.string().email(),
             firstName: z.string().optional(),
             lastName: z.string().optional(),
-            role: z.enum(['superadmin', 'operateur', 'chauffeur']),
+            role: z.enum(['superadmin', 'operateur']),
         }),
         responses: {
             201: z.custom<typeof auth.users.$inferSelect>(),

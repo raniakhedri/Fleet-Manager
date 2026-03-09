@@ -3,7 +3,7 @@ import { useUser } from "@/hooks/use-user";
 import { MapView } from "@/components/map-view";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, AlertTriangle, Car, Zap, Shield, User, Info } from "lucide-react";
+import { Activity, AlertTriangle, Car, Shield, User, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,6 @@ export default function Dashboard() {
     { title: "Flotte Totale", value: totalVehicles, icon: Car, color: "text-blue-600", bg: "bg-blue-100" },
     { title: "Véhicules Actifs", value: activeVehicles, icon: Activity, color: "text-emerald-600", bg: "bg-emerald-100" },
     { title: "En Maintenance", value: maintenanceVehicles, icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-100" },
-    ...(isAdmin ? [{ title: "Conso. Moyenne", value: "8.5 km/L", icon: Zap, color: "text-purple-600", bg: "bg-purple-100" }] : []),
   ];
 
   const pieData = [

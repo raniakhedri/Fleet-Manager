@@ -4,7 +4,6 @@ import { useGpsPositions, useGpsWebSocket } from "@/hooks/use-gps-tracking";
 import { useUser } from "@/hooks/use-user";
 import Layout from "@/components/layout";
 import { MapView } from "@/components/map-view";
-import { GpsSimulator } from "@/components/gps-simulator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,8 +15,8 @@ export default function LiveMapPage() {
   // Open a WebSocket so GPS updates are pushed in real time
   const { status: wsStatus } = useGpsWebSocket();
   // Enable polling fallback when WebSocket is disconnected
-  const { data: gpsPositions, isLoading: gpsLoading } = useGpsPositions(wsStatus !== "connected");
-  const { isSuperAdmin, isOperateur } = useUser();
+  const { data: gpsPositions } = useGpsPositions(wsStatus !== "connected");
+  const { isSuperAdmin } = useUser();
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
   // Merge GPS positions into vehicles for map rendering
@@ -159,8 +158,6 @@ export default function LiveMapPage() {
             </CardContent>
           </Card>
 
-          {/* GPS Simulator for testing (superadmin / operateur only) */}
-          {(isSuperAdmin || isOperateur) && <GpsSimulator />}
           </div>
 
           {/* Map */}

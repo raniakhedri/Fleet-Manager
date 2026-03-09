@@ -4,7 +4,7 @@ import Layout from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle, Fuel } from "lucide-react";
+import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportsPage() {
@@ -21,8 +21,6 @@ export default function ReportsPage() {
       const vehicleMissions = missions.filter(m => m.vehicleId === vehicle.id);
       const completedMissions = vehicleMissions.filter(m => m.status === 'completed');
       const inProgressMissions = vehicleMissions.filter(m => m.status === 'in_progress');
-      const totalDistance = vehicleMissions.reduce((sum, m) => sum + (m.distance || 0), 0);
-
       // Calculate utilization (missions / total time)
       const utilizationRate = vehicleMissions.length > 0 
         ? Math.round((completedMissions.length / vehicleMissions.length) * 100) 
@@ -33,9 +31,7 @@ export default function ReportsPage() {
         totalMissions: vehicleMissions.length,
         completedMissions: completedMissions.length,
         inProgressMissions: inProgressMissions.length,
-        totalDistance: totalDistance.toFixed(1),
         utilizationRate,
-        avgFuelLevel: vehicle.fuelLevel || 0,
       };
     });
   };
@@ -75,11 +71,6 @@ export default function ReportsPage() {
     return "text-slate-500";
   };
 
-  const getFuelLevelColor = (level: number) => {
-    if (level >= 70) return "text-emerald-600";
-    if (level >= 40) return "text-amber-600";
-    return "text-red-600 font-semibold";
-  };
 
   return (
     <Layout>
@@ -179,15 +170,13 @@ export default function ReportsPage() {
                     <TableHead className="text-center">Total Missions</TableHead>
                     <TableHead className="text-center">Terminées</TableHead>
                     <TableHead className="text-center">En Cours</TableHead>
-                    <TableHead className="text-center">Distance (km)</TableHead>
                     <TableHead className="text-center">Utilisation</TableHead>
-                    <TableHead className="text-center">Niveau Carburant</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vehicleStats.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                         Aucune donnée de véhicule disponible
                       </TableCell>
                     </TableRow>
@@ -214,19 +203,10 @@ export default function ReportsPage() {
                             {vehicle.inProgressMissions}
                           </div>
                         </TableCell>
-                        <TableCell className="text-center font-mono text-sm">
-                          {vehicle.totalDistance}
-                        </TableCell>
                         <TableCell className="text-center">
                           <span className={getUtilizationColor(vehicle.utilizationRate)}>
                             {vehicle.utilizationRate}%
                           </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className={`flex items-center justify-center gap-1 ${getFuelLevelColor(vehicle.avgFuelLevel)}`}>
-                            <Fuel className="w-3 h-3" />
-                            {vehicle.avgFuelLevel}%
-                          </div>
                         </TableCell>
                       </TableRow>
                     ))

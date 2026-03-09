@@ -18,7 +18,6 @@ const vehicleFormSchema = z.object({
   licensePlatePrefix: z.string().regex(/^\d{1,4}$/, "Doit contenir 1 à 4 chiffres"),
   licensePlateSuffix: z.string().regex(/^\d{1,4}$/, "Doit contenir 1 à 4 chiffres"),
   status: z.string(),
-  fuelLevel: z.number().min(0).max(100),
   lat: z.number().optional(),
   lng: z.number().optional(),
 });
@@ -55,7 +54,6 @@ export function VehicleForm({ vehicle, trigger }: VehicleFormProps) {
       licensePlatePrefix: parsedPlate.prefix,
       licensePlateSuffix: parsedPlate.suffix,
       status: vehicle.status,
-      fuelLevel: vehicle.fuelLevel ?? 100,
       lat: vehicle.lat || 0,
       lng: vehicle.lng || 0,
     } : {
@@ -64,7 +62,6 @@ export function VehicleForm({ vehicle, trigger }: VehicleFormProps) {
       licensePlatePrefix: "",
       licensePlateSuffix: "",
       status: "active",
-      fuelLevel: 100,
       lat: 36.8065, // Default Tunis
       lng: 10.1815,
     },
@@ -80,7 +77,6 @@ export function VehicleForm({ vehicle, trigger }: VehicleFormProps) {
         model: data.model,
         licensePlate,
         status: data.status,
-        fuelLevel: data.fuelLevel,
         lat: data.lat,
         lng: data.lng,
       };
@@ -213,28 +209,6 @@ export function VehicleForm({ vehicle, trigger }: VehicleFormProps) {
               <p className="text-xs text-slate-500 mt-1">Format: XXXX TUNIS XXXX</p>
               <FormMessage />
             </FormItem>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="fuelLevel"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Niveau de Carburant (%)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        min="0" 
-                        max="100" 
-                        {...field} 
-                        onChange={e => field.onChange(parseInt(e.target.value))} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>

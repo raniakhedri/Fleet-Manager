@@ -233,13 +233,12 @@ export const api = {
             404: errorSchemas.notFound,
         }
     },
-    // Superadmin: create a new user
+    // Superadmin: create a new user (password is auto-generated)
     create: {
         method: 'POST' as const,
         path: '/api/users',
         input: z.object({
             email: z.string().email(),
-            password: z.string().min(6).optional(),
             firstName: z.string().optional(),
             lastName: z.string().optional(),
             role: z.enum(['superadmin', 'operateur', 'chauffeur']),

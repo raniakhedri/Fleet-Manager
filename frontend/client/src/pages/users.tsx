@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Trash2, Shield, UserCircle, Users, AlertTriangle, UserPlus, Copy, Check } from "lucide-react";
 import {
   Select,
@@ -323,11 +324,12 @@ export default function UsersPage() {
                       <TableRow key={user.id} className={isSelf ? "bg-gold-50/50" : ""}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-600 flex items-center justify-center border-2 border-gold-300/50 shadow">
-                              <span className="font-bold text-white text-sm">
+                            <Avatar className="w-9 h-9 border-2 border-gold-300/50 shadow">
+                              <AvatarImage src={user.profileImageUrl || undefined} alt={getUserDisplayName(user)} />
+                              <AvatarFallback className="bg-gradient-to-br from-crimson-500 to-crimson-600 text-white text-sm font-bold">
                                 {getUserInitials(user)}
-                              </span>
-                            </div>
+                              </AvatarFallback>
+                            </Avatar>
                             <div>
                               <p className="font-medium text-slate-900">{getUserDisplayName(user)}</p>
                               {isSelf && (

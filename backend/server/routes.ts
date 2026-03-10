@@ -127,6 +127,35 @@ export async function registerRoutes(
     }
   });
 
+  // Upload / update profile image
+  app.post("/api/user/profile-image", isAuthenticatedJWT, async (req: any, res: any) => {
+    try {
+      const userId = req.user.userId;
+      const { profileImageUrl } = req.body;
+
+      if (!profileImageUrl || typeof profileImageUrl !== 'string') {
+        return res.status(400).json({ message: "profileImageUrl is required" });
+      }
+
+      // Limit base64 size (~2MB)
+      if (profileImageUrl.length > 3 * 1024 * 1024) {
+        return res.status(400).json({ message: "Image trop volumineuse (max 2 Mo)" });
+      }
+
+      const [updated] = await db.update(users)
+        .set({ profileImageUrl, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ message: "User not found" });
+
+      res.json({ message: "Photo de profil mise à jour", profileImageUrl: updated.profileImageUrl });
+    } catch (err) {
+      console.error("[PROFILE IMAGE] Error:", err);
+      res.status(500).json({ message: "Erreur lors de la mise à jour de la photo" });
+    }
+  });
+
   // === License Expiry Check API (Operateur/Superadmin) ===
   app.get("/api/drivers/expiring-licenses", isAuthenticatedJWT, requireRole("operateur", "superadmin"), async (req, res) => {
     try {
@@ -552,13 +581,14 @@ export async function registerRoutes(
   // === User Management Routes (Superadmin only) ===
 
   // List all users
-  app.get(api.users.list.path, isAuthenticatedJWT, requireRole("superadmin"), async (req, res) => {
+  app.get(api.users.list.path, isAuthenticatedJWT, requireRole("superadmin", "operateur"), async (req, res) => {
     const allUsers = await db.select({
       id: users.id,
       email: users.email,
       firstName: users.firstName,
       lastName: users.lastName,
       role: users.role,
+      profileImageUrl: users.profileImageUrl,
       createdAt: users.createdAt,
     }).from(users);
     res.json(allUsers);

@@ -11,11 +11,27 @@ import { Badge } from "@/components/ui/badge";
 import { Camera, Mail, CreditCard, Calendar, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+function getApiUrl(path: string) {
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
+  return `${baseUrl}${cleanPath}`;
+}
+
+function getAuthHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
 
 export default function ProfilePage() {
   const { data: drivers } = useDrivers();
   const { user } = useUser();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Find current driver
   const currentDriver = drivers?.find(d => d.email === user?.email);
@@ -31,15 +47,43 @@ export default function ProfilePage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  const uploadProfileImageMutation = useMutation({
+    mutationFn: async (base64Image: string) => {
+      const res = await fetch(getApiUrl("/api/user/profile-image"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ profileImageUrl: base64Image }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erreur lors de l'upload de l'image");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/me"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "Succès", description: "Photo de profil mise à jour." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    },
+  });
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Erreur", description: "L'image ne doit pas dépasser 2 Mo", variant: "destructive" });
+      return;
     }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setProfileImage(base64);
+      uploadProfileImageMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleChangePassword = async () => {
@@ -58,11 +102,9 @@ export default function ProfilePage() {
 
     setIsChangingPassword(true);
     try {
-      const token = localStorage.getItem("token");
-      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
-      const response = await fetch(`${baseUrl}/change-password`, {
+      const response = await fetch(getApiUrl("/api/change-password"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await response.json();

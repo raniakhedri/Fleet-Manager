@@ -5,20 +5,31 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
+import { Loader2, Lock, Eye, EyeOff, Camera } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+function getApiUrl(path: string) {
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
+  return `${baseUrl}${cleanPath}`;
+}
+
+function getAuthHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
 
 async function changePassword(data: { currentPassword: string; newPassword: string }) {
-  const token = localStorage.getItem("token");
-  const res = await fetch("/api/change-password", {
+  const res = await fetch(getApiUrl("/api/change-password"), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -32,9 +43,11 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useUserProfile();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const passwordForm = useForm({
     defaultValues: {
@@ -64,6 +77,44 @@ export default function SettingsPage() {
       currentPassword: data.currentPassword,
       newPassword: data.newPassword,
     });
+  };
+
+  const uploadProfileImageMutation = useMutation({
+    mutationFn: async (base64Image: string) => {
+      const res = await fetch(getApiUrl("/api/user/profile-image"), {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ profileImageUrl: base64Image }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erreur lors de l'upload de l'image");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/me"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "Succès", description: "Photo de profil mise à jour." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Erreur", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Erreur", description: "L'image ne doit pas dépasser 2 Mo", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      uploadProfileImageMutation.mutate(base64);
+    };
+    reader.readAsDataURL(file);
   };
 
   // Get display name from profile or user
@@ -112,17 +163,28 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="w-16 h-16 rounded-full border-2 border-slate-100"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-crimson-500 to-crimson-700 flex items-center justify-center text-white font-bold text-2xl">
-                  {initials}
-                </div>
-              )}
+              <div className="relative">
+                <Avatar className="w-20 h-20 border-2 border-slate-100 shadow">
+                  <AvatarImage src={profileImage || undefined} alt="Profile" />
+                  <AvatarFallback className="text-2xl font-bold bg-gradient-to-br from-crimson-500 to-crimson-700 text-white">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <label
+                  htmlFor="settings-profile-image"
+                  className="absolute bottom-0 right-0 bg-crimson-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-crimson-700 transition-colors shadow-lg"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <input
+                    id="settings-profile-image"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </label>
+              </div>
               <div>
                 <h3 className="font-bold text-lg">{displayName}</h3>
                 <p className="text-slate-500">{displayEmail}</p>

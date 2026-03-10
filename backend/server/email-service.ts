@@ -8,7 +8,9 @@ const apiKey = process.env.BREVO_API_KEY;
 
 if (apiKey) {
   apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey);
-  console.log('[EMAIL] Brevo configured successfully');
+  // Log key prefix for debug (never log the full key!)
+  const maskedKey = apiKey.substring(0, 8) + '...' + apiKey.substring(apiKey.length - 4);
+  console.log(`[EMAIL] Brevo configured successfully (key: ${maskedKey}, length: ${apiKey.length})`);
 } else {
   console.warn('[EMAIL] BREVO_API_KEY not set. Email functionality will be disabled.');
 }

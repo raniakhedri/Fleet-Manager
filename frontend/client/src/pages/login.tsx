@@ -315,7 +315,10 @@ export default function LoginPage() {
               </div>
               <CardTitle className="text-2xl font-bold text-slate-900">Entrez le code</CardTitle>
               <CardDescription className="text-gray-600">
-                Un code à 5 chiffres a été envoyé à <strong className="text-slate-800">{forgotEmail}</strong>. Saisissez-le ci-dessous.
+                {fallbackCode
+                  ? "L'envoi d'email a échoué. Utilisez le code affiché ci-dessous."
+                  : <>Un code à 5 chiffres a été envoyé à <strong className="text-slate-800">{forgotEmail}</strong>. Saisissez-le ci-dessous.</>
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>

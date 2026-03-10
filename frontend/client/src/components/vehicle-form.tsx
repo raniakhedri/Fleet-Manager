@@ -89,7 +89,7 @@ export function VehicleForm({ vehicle, trigger }: VehicleFormProps) {
       setOpen(false);
       if (!isEditing) form.reset();
     } catch (error) {
-      console.error(error);
+      // Error is handled by the mutation's onError callback (toast)
     }
   };
 

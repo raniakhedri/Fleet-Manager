@@ -94,7 +94,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
       setOpen(false);
       if (!isEditing) form.reset();
     } catch (error) {
-      console.error(error);
+      // Error is handled by the mutation's onError callback (toast)
     }
   };
 

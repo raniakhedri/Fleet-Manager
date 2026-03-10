@@ -224,11 +224,22 @@ export async function registerRoutes(
   app.post(api.vehicles.create.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
       const input = api.vehicles.create.input.parse(req.body);
+
+      // Check for duplicate license plate
+      const [existingVehicle] = await db.select().from(vehicles).where(eq(vehicles.licensePlate, input.licensePlate));
+      if (existingVehicle) {
+        return res.status(400).json({ message: `La matricule "${input.licensePlate}" existe déjà. Veuillez utiliser une matricule différente.` });
+      }
+
       const vehicle = await storage.createVehicle(input);
       res.status(201).json(vehicle);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
+      }
+      // Catch DB unique constraint violation as fallback
+      if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
+        return res.status(400).json({ message: "Cette matricule existe déjà." });
       }
       throw err;
     }
@@ -237,10 +248,23 @@ export async function registerRoutes(
   app.put(api.vehicles.update.path, isAuthenticatedJWT, requireRole("operateur"), async (req, res) => {
     try {
         const input = api.vehicles.update.input.parse(req.body);
-        const vehicle = await storage.updateVehicle(Number(req.params.id), input);
+        const vehicleId = Number(req.params.id);
+
+        // Check for duplicate license plate (exclude current vehicle)
+        if (input.licensePlate) {
+          const [existingVehicle] = await db.select().from(vehicles).where(eq(vehicles.licensePlate, input.licensePlate));
+          if (existingVehicle && existingVehicle.id !== vehicleId) {
+            return res.status(400).json({ message: `La matricule "${input.licensePlate}" est déjà utilisée par un autre véhicule.` });
+          }
+        }
+
+        const vehicle = await storage.updateVehicle(vehicleId, input);
         if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
         res.json(vehicle);
     } catch (err) {
+        if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
+          return res.status(400).json({ message: "Cette matricule existe déjà." });
+        }
         res.status(400).json({ message: "Invalid input" });
     }
   });
@@ -317,7 +341,13 @@ export async function registerRoutes(
       // Check if driver with this email already exists in drivers table
       const existingDriver = await storage.getDriverByEmail(input.email);
       if (existingDriver) {
-        return res.status(400).json({ message: 'Un chauffeur avec cet email existe déjà' });
+        return res.status(400).json({ message: 'Un chauffeur avec cet email existe déjà.' });
+      }
+
+      // Check if a driver with this license number already exists
+      const [existingLicense] = await db.select().from(drivers).where(eq(drivers.licenseNumber, input.licenseNumber));
+      if (existingLicense) {
+        return res.status(400).json({ message: `Le numéro de permis "${input.licenseNumber}" est déjà utilisé par un autre chauffeur.` });
       }
       
       // Check if email already exists in users table (orphaned record)
@@ -385,9 +415,16 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
       }
-      // Check for duplicate email
+      // Check for duplicate email or license number (DB constraint)
       if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
-        return res.status(400).json({ message: 'A driver with this email already exists' });
+        const detail = 'detail' in err ? String(err.detail) : '';
+        if (detail.includes('email')) {
+          return res.status(400).json({ message: 'Un chauffeur avec cet email existe déjà.' });
+        }
+        if (detail.includes('license_number')) {
+          return res.status(400).json({ message: 'Ce numéro de permis est déjà utilisé.' });
+        }
+        return res.status(400).json({ message: 'Un enregistrement avec ces données existe déjà.' });
       }
       throw err;
     }
@@ -401,7 +438,23 @@ export async function registerRoutes(
       // Get current driver to check previous vehicle assignment
       const currentDriver = await storage.getDriver(driverId);
       if (!currentDriver) return res.status(404).json({ message: "Driver not found" });
-      
+
+      // Check for duplicate email (exclude current driver)
+      if (input.email) {
+        const existingByEmail = await storage.getDriverByEmail(input.email);
+        if (existingByEmail && existingByEmail.id !== driverId) {
+          return res.status(400).json({ message: `L'email "${input.email}" est déjà utilisé par un autre chauffeur.` });
+        }
+      }
+
+      // Check for duplicate license number (exclude current driver)
+      if (input.licenseNumber) {
+        const [existingByLicense] = await db.select().from(drivers).where(eq(drivers.licenseNumber, input.licenseNumber));
+        if (existingByLicense && existingByLicense.id !== driverId) {
+          return res.status(400).json({ message: `Le numéro de permis "${input.licenseNumber}" est déjà utilisé par un autre chauffeur.` });
+        }
+      }
+
       // Update the driver
       const driver = await storage.updateDriver(driverId, input);
       if (!driver) return res.status(404).json({ message: "Driver not found" });
@@ -429,7 +482,17 @@ export async function registerRoutes(
       
       res.json(driver);
     } catch (err) {
-      res.status(400).json({ message: "Invalid input" });
+      if (err && typeof err === 'object' && 'code' in err && err.code === '23505') {
+        const detail = 'detail' in err ? String(err.detail) : '';
+        if (detail.includes('email')) {
+          return res.status(400).json({ message: 'Cet email est déjà utilisé par un autre chauffeur.' });
+        }
+        if (detail.includes('license_number')) {
+          return res.status(400).json({ message: 'Ce numéro de permis est déjà utilisé.' });
+        }
+        return res.status(400).json({ message: 'Un enregistrement avec ces données existe déjà.' });
+      }
+      res.status(400).json({ message: "Données invalides" });
     }
   });
 

@@ -105,15 +105,25 @@ export function useUpdateDriver() {
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to update driver");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Échec de la mise à jour" }));
+        throw new Error(error.message || "Échec de la mise à jour du chauffeur");
+      }
       return api.drivers.update.responses[200].parse(await res.json());
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.drivers.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.drivers.get.path, variables.id] });
       toast({
-        title: "Updated",
-        description: "Driver information updated",
+        title: "Succès",
+        description: "Informations du chauffeur mises à jour",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -136,8 +146,8 @@ export function useDeleteDriver() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.drivers.list.path] });
       toast({
-        title: "Deleted",
-        description: "Driver removed",
+        title: "Supprimé",
+        description: "Chauffeur supprimé",
       });
     },
   });

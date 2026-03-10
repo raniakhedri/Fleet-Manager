@@ -86,13 +86,13 @@ export function useCreateVehicle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.vehicles.list.path] });
       toast({
-        title: "Success",
-        description: "Vehicle added successfully",
+        title: "Succès",
+        description: "Véhicule ajouté avec succès",
       });
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: "Erreur",
         description: error.message,
         variant: "destructive",
       });
@@ -113,15 +113,25 @@ export function useUpdateVehicle() {
         body: JSON.stringify(data),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to update vehicle");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Échec de la mise à jour" }));
+        throw new Error(error.message || "Échec de la mise à jour du véhicule");
+      }
       return api.vehicles.update.responses[200].parse(await res.json());
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.vehicles.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.vehicles.get.path, variables.id] });
       toast({
-        title: "Updated",
-        description: "Vehicle information updated",
+        title: "Succès",
+        description: "Véhicule mis à jour avec succès",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erreur",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
@@ -144,8 +154,8 @@ export function useDeleteVehicle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.vehicles.list.path] });
       toast({
-        title: "Deleted",
-        description: "Vehicle removed from fleet",
+        title: "Supprimé",
+        description: "Véhicule retiré de la flotte",
       });
     },
   });

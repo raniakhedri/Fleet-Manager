@@ -19,3 +19,9 @@ services:
         generateValue: true
       - key: PORT
         value: 10000
+      - key: BREVO_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: BREVO_SENDER_EMAIL
+        sync: false  # Set manually in Render dashboard
+      - key: BREVO_SENDER_NAME
+        value: FleetGuard

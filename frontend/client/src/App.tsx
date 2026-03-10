@@ -19,6 +19,7 @@ import ReportsPage from "@/pages/reports";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
 import UsersPage from "@/pages/users";
+import ResetPasswordPage from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 
 type AllowedRole = "superadmin" | "operateur" | "chauffeur";
@@ -74,6 +75,7 @@ function AppRouter() {
       <Switch>
         <Route path="/" component={LandingPage} />
         <Route path="/login" component={LoginPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/logout" component={LogoutPage} />
         <Route path="/api/logout" component={LogoutPage} />
         

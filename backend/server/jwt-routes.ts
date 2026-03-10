@@ -6,6 +6,7 @@ import type { AppRole } from "./jwt-auth";
 import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
+import { sendPasswordResetEmail } from "./email-service";
 
 const SignupSchema = z.object({
   email: z.string().email(),
@@ -22,6 +23,15 @@ const LoginSchema = z.object({
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
   newPassword: z.string().min(6, "New password must be at least 6 characters"),
+});
+
+const ForgotPasswordSchema = z.object({
+  email: z.string().email("Adresse email invalide"),
+});
+
+const ResetPasswordSchema = z.object({
+  token: z.string().min(1, "Token requis"),
+  newPassword: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
 });
 
 export function registerJWTAuthRoutes(app: Express) {
@@ -176,6 +186,98 @@ export function registerJWTAuthRoutes(app: Express) {
         .where(eq(users.id, decoded.userId));
 
       res.json({ message: "Mot de passe modifié avec succès" });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Forgot Password — sends a reset link via email
+  app.post("/api/forgot-password", async (req, res) => {
+    try {
+      const input = ForgotPasswordSchema.parse(req.body);
+
+      // Find user by email
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, input.email));
+
+      // Always return success to avoid email enumeration
+      if (!user) {
+        return res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
+      }
+
+      // Generate a short-lived JWT token for password reset (1 hour)
+      const jwt = await import("jsonwebtoken");
+      const resetToken = jwt.default.sign(
+        { userId: user.id, email: user.email, purpose: "password-reset" },
+        process.env.JWT_SECRET || "dev-jwt-secret-change-in-production",
+        { expiresIn: "1h" }
+      );
+
+      const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Utilisateur";
+
+      try {
+        await sendPasswordResetEmail(user.email!, userName, resetToken);
+      } catch (emailErr) {
+        console.error("[FORGOT PASSWORD] Email send failed:", emailErr);
+        // Still return success to not leak info, but log it
+      }
+
+      res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Reset Password — verifies token and sets new password
+  app.post("/api/reset-password", async (req, res) => {
+    try {
+      const input = ResetPasswordSchema.parse(req.body);
+
+      // Verify the reset token
+      const jwt = await import("jsonwebtoken");
+      let decoded: { userId: string; email: string; purpose: string };
+      try {
+        decoded = jwt.default.verify(
+          input.token,
+          process.env.JWT_SECRET || "dev-jwt-secret-change-in-production"
+        ) as any;
+      } catch (tokenErr) {
+        return res.status(400).json({ message: "Le lien de réinitialisation est invalide ou a expiré." });
+      }
+
+      // Check the purpose claim
+      if (decoded.purpose !== "password-reset") {
+        return res.status(400).json({ message: "Token invalide." });
+      }
+
+      // Find user
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, decoded.userId));
+
+      if (!user) {
+        return res.status(404).json({ message: "Utilisateur introuvable." });
+      }
+
+      // Hash new password and update
+      const newPasswordHash = await bcrypt.hash(input.newPassword, 10);
+      await db
+        .update(users)
+        .set({ passwordHash: newPasswordHash, updatedAt: new Date() })
+        .where(eq(users.id, decoded.userId));
+
+      res.json({ message: "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter." });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });

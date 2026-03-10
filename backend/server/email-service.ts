@@ -182,6 +182,82 @@ export async function sendLicenseExpiryWarningToDriver(
   }
 }
 
+// Send password reset email
+export async function sendPasswordResetEmail(
+  userEmail: string,
+  userName: string,
+  resetToken: string
+): Promise<void> {
+  if (!apiKey) {
+    console.warn('[EMAIL] Skipping email - Brevo not configured');
+    console.warn(`[EMAIL] Would have sent password reset to ${userEmail}`);
+    console.warn(`[EMAIL] Reset token: ${resetToken}`);
+    throw new Error('Email service not configured');
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL || '';
+  const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@fleetguard.com';
+  const senderName = process.env.BREVO_SENDER_NAME || 'FleetGuard';
+
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+  sendSmtpEmail.subject = '🔑 Réinitialisation de votre mot de passe FleetGuard';
+  sendSmtpEmail.htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+        .header { background: linear-gradient(135deg, #c41e3a 0%, #8b0000 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .button { display: inline-block; background: linear-gradient(135deg, #c41e3a, #8b0000); color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: bold; font-size: 16px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 20px; border-radius: 4px; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 14px; }
+        .code-box { background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; font-family: monospace; font-size: 14px; word-break: break-all; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔑 Réinitialisation du Mot de Passe</h1>
+        </div>
+        <div class="content">
+          <h2>Bonjour ${userName},</h2>
+          <p>Vous avez demandé la réinitialisation de votre mot de passe FleetGuard.</p>
+          <p>Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :</p>
+          
+          <center>
+            <a href="${resetUrl}" class="button">Réinitialiser mon mot de passe</a>
+          </center>
+
+          <p style="margin-top: 20px;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+          <div class="code-box">${resetUrl}</div>
+          
+          <div class="warning">
+            <strong>⚠️ Important :</strong> Ce lien expire dans <strong>1 heure</strong>. Si vous n'avez pas fait cette demande, ignorez simplement cet email.
+          </div>
+          
+          <div class="footer">
+            <p>&copy; 2026 FleetGuard. Tous droits réservés.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: userEmail, name: userName }];
+
+  try {
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log(`[EMAIL] Password reset sent to ${userEmail}, messageId: ${response.body.messageId}`);
+  } catch (error: any) {
+    console.error('[EMAIL] Failed to send password reset email:', error?.body || error);
+    throw new Error('Failed to send password reset email');
+  }
+}
+
 // Send license expiry notification to admin
 export async function sendLicenseExpiryNotificationToAdmin(
   adminEmail: string,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDrivers, useUpdateDriver } from "@/hooks/use-drivers";
+import { useDrivers } from "@/hooks/use-drivers";
 import { useUser } from "@/hooks/use-user";
 import UserLayout from "@/components/user-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Camera, Mail, Phone, CreditCard, Calendar, Save, Lock, Eye, EyeOff } from "lucide-react";
+import { Camera, Mail, CreditCard, Calendar, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -16,15 +16,12 @@ export default function ProfilePage() {
   const { data: drivers } = useDrivers();
   const { user } = useUser();
   const { toast } = useToast();
-  const updateMutation = useUpdateDriver();
-  
+
   // Find current driver
   const currentDriver = drivers?.find(d => d.email === user?.email);
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState(currentDriver?.phoneNumber || "");
+
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  
+
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -45,96 +42,37 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSaveProfile = async () => {
-    if (!currentDriver) return;
-    
-    try {
-      await updateMutation.mutateAsync({
-        id: currentDriver.id,
-        phoneNumber: phoneNumber,
-      });
-      
-      toast({
-        title: "Succès",
-        description: "Profil mis à jour avec succès",
-      });
-      setIsEditing(false);
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: "Échec de la mise à jour du profil",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleChangePassword = async () => {
     if (!newPassword || !currentPassword) {
-      toast({
-        title: "Erreur",
-        description: "Veuillez remplir tous les champs",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: "Veuillez remplir tous les champs", variant: "destructive" });
       return;
     }
-
     if (newPassword.length < 6) {
-      toast({
-        title: "Erreur",
-        description: "Le nouveau mot de passe doit contenir au moins 6 caractères",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: "Le nouveau mot de passe doit contenir au moins 6 caractères", variant: "destructive" });
       return;
     }
-
     if (newPassword !== confirmPassword) {
-      toast({
-        title: "Erreur",
-        description: "Les mots de passe ne correspondent pas",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: "Les mots de passe ne correspondent pas", variant: "destructive" });
       return;
     }
 
     setIsChangingPassword(true);
-    
     try {
       const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
-      
       const response = await fetch(`${baseUrl}/change-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors du changement de mot de passe");
-      }
-
-      toast({
-        title: "Succès",
-        description: "Mot de passe modifié avec succès",
-      });
-      
-      // Clear fields
+      if (!response.ok) throw new Error(data.message || "Erreur lors du changement de mot de passe");
+      toast({ title: "Succès", description: "Mot de passe modifié avec succès" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Échec du changement de mot de passe",
-        variant: "destructive",
-      });
+      toast({ title: "Erreur", description: error.message || "Échec du changement de mot de passe", variant: "destructive" });
     } finally {
       setIsChangingPassword(false);
     }
@@ -146,13 +84,7 @@ export default function ProfilePage() {
       inactive: "bg-slate-500/15 text-slate-700 border-0",
       on_leave: "bg-amber-500/15 text-amber-700 border-0",
     };
-    
-    const labels: Record<string, string> = {
-      active: "Actif",
-      inactive: "Inactif",
-      on_leave: "En congé",
-    };
-    
+    const labels: Record<string, string> = { active: "Actif", inactive: "Inactif", on_leave: "En congé" };
     return (
       <Badge className={variants[status] || "bg-slate-100 text-slate-700 border-0"}>
         {labels[status] || status}
@@ -193,18 +125,12 @@ export default function ProfilePage() {
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <label 
-                    htmlFor="profile-image" 
+                  <label
+                    htmlFor="profile-image"
                     className="absolute bottom-0 right-0 bg-crimson-600 text-white p-2 rounded-full cursor-pointer hover:bg-crimson-700 transition-colors shadow-lg"
                   >
                     <Camera className="w-4 h-4" />
-                    <input 
-                      id="profile-image" 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleImageUpload}
-                    />
+                    <input id="profile-image" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   </label>
                 </div>
                 {getStatusBadge(currentDriver.status)}
@@ -220,82 +146,36 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Email — lecture seule */}
                   <div className="space-y-2">
                     <Label className="text-slate-600 flex items-center gap-2">
                       <Mail className="w-4 h-4" />
                       Email
                     </Label>
-                    <Input 
-                      value={currentDriver.email} 
-                      disabled 
-                      className="bg-slate-50"
-                    />
+                    <Input value={currentDriver.email} disabled className="bg-slate-50" />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-slate-600 flex items-center gap-2">
-                      <Phone className="w-4 h-4" />
-                      Téléphone
-                    </Label>
-                    <Input 
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      disabled={!isEditing}
-                      className={!isEditing ? "bg-slate-50" : ""}
-                    />
-                  </div>
-
+                  {/* Numéro de Permis — lecture seule */}
                   <div className="space-y-2">
                     <Label className="text-slate-600 flex items-center gap-2">
                       <CreditCard className="w-4 h-4" />
                       Numéro de Permis
                     </Label>
-                    <Input 
-                      value={currentDriver.licenseNumber} 
-                      disabled 
-                      className="bg-slate-50 font-mono"
-                    />
+                    <Input value={currentDriver.licenseNumber} disabled className="bg-slate-50 font-mono" />
                   </div>
 
+                  {/* Expiration du Permis — lecture seule */}
                   <div className="space-y-2">
                     <Label className="text-slate-600 flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
                       Expiration du Permis
                     </Label>
-                    <Input 
-                      value={currentDriver.licenseExpiry ? format(new Date(currentDriver.licenseExpiry), "PP") : "Non défini"} 
-                      disabled 
+                    <Input
+                      value={currentDriver.licenseExpiry ? format(new Date(currentDriver.licenseExpiry), "PP") : "Non défini"}
+                      disabled
                       className="bg-slate-50"
                     />
                   </div>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  {!isEditing ? (
-                    <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700">
-                      Modifier le Profil
-                    </Button>
-                  ) : (
-                    <>
-                      <Button 
-                        onClick={handleSaveProfile} 
-                        disabled={updateMutation.isPending}
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          setIsEditing(false);
-                          setPhoneNumber(currentDriver.phoneNumber);
-                        }}
-                      >
-                        Annuler
-                      </Button>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -368,11 +248,8 @@ export default function ProfilePage() {
                   placeholder="••••••••"
                   className="pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
+                <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -388,11 +265,8 @@ export default function ProfilePage() {
                   placeholder="••••••••"
                   className="pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
+                <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -409,11 +283,8 @@ export default function ProfilePage() {
                   placeholder="••••••••"
                   className="pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>

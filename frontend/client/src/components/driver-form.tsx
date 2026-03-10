@@ -18,12 +18,7 @@ const driverFormSchema = z.object({
   email: z.string().email("Adresse email invalide"),
   phoneNumber: z.string().regex(/^\d{8}$/, "Le numéro de téléphone doit contenir exactement 8 chiffres"),
   licenseNumber: z.string().min(5, "Numéro de permis doit contenir au moins 5 caractères").max(30, "Numéro de permis trop long"),
-  licenseExpiry: z.string().min(1, "La date d'expiration du permis est requise").refine((date) => {
-    const expiryDate = new Date(date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return expiryDate >= today;
-  }, "Le permis ne peut pas être expiré"),
+  licenseExpiry: z.string().min(1, "La date d'expiration du permis est requise"),
   status: z.enum(["active", "inactive", "on_leave"]).default("active"),
   assignedVehicleId: z.number({ required_error: "Le véhicule assigné est requis" }).min(1, "Vous devez assigner un véhicule"),
 });
@@ -253,31 +248,57 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
             <FormField
               control={form.control}
               name="licenseExpiry"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    Date d'Expiration du Permis *
-                    {field.value && new Date(field.value) < new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) && (
-                      <AlertTriangle className="w-4 h-4 text-gold-600" />
+              render={({ field }) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const expiryDate = field.value ? new Date(field.value) : null;
+                const isExpired = expiryDate ? expiryDate < today : false;
+                const isExpiringSoon = expiryDate && !isExpired
+                  ? expiryDate < new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
+                  : false;
+
+                return (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      Date d'Expiration du Permis *
+                      {(isExpired || isExpiringSoon) && (
+                        <AlertTriangle className={`w-4 h-4 ${isExpired ? 'text-red-600' : 'text-gold-600'}`} />
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          field.onChange(e.target.value);
+                          // Auto-set status to inactive if license is expired
+                          if (e.target.value) {
+                            const newExpiry = new Date(e.target.value);
+                            const now = new Date();
+                            now.setHours(0, 0, 0, 0);
+                            if (newExpiry < now) {
+                              form.setValue('status', 'inactive');
+                            }
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    {isExpired && (
+                      <p className="text-xs text-red-600 flex items-center gap-1 font-medium">
+                        <AlertTriangle className="w-3 h-3" />
+                        Permis expiré ! Le chauffeur doit être mis en inactif.
+                      </p>
                     )}
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="date" 
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </FormControl>
-                  {field.value && new Date(field.value) < new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) && (
-                    <p className="text-xs text-gold-600 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Le permis expire bientôt!
-                    </p>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
+                    {isExpiringSoon && (
+                      <p className="text-xs text-gold-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Le permis expire bientôt !
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField

@@ -36,13 +36,18 @@ export default function DriversPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
       active: "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25",
-      inactive: "bg-slate-500/15 text-slate-700 hover:bg-slate-500/25",
+      inactive: "bg-red-500/15 text-red-700 hover:bg-red-500/25",
       on_leave: "bg-amber-500/15 text-amber-700 hover:bg-amber-500/25",
     };
-    
+    const labels: Record<string, string> = {
+      active: "Actif",
+      inactive: "Inactif",
+      on_leave: "En congé",
+    };
+
     return (
       <Badge className={`border-0 font-medium ${variants[status] || "bg-slate-100 text-slate-700"}`}>
-        {status.replace('_', ' ').charAt(0).toUpperCase() + status.replace('_', ' ').slice(1)}
+        {labels[status] || status}
       </Badge>
     );
   };

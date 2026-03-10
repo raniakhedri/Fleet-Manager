@@ -40,6 +40,14 @@ async function checkExpiringLicenses() {
       const timeDiff = expiryDate.getTime() - today.getTime();
       const daysRemaining = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
       
+      // Auto-deactivate drivers with expired licenses
+      if (daysRemaining <= 0 && driver.status === 'active') {
+        await db.update(drivers)
+          .set({ status: 'inactive', updatedAt: new Date() })
+          .where(eq(drivers.id, driver.id));
+        console.log(`[LICENSE CHECK] Auto-deactivated driver ${driver.firstName} ${driver.lastName} - license expired`);
+      }
+
       // Send notification to driver
       await sendLicenseExpiryWarningToDriver(
         driver.email,

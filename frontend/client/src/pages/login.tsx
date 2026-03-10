@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Loader2, ArrowLeft, Star, Mail, CheckCircle2 } from "lucide-react";
+import { Shield, Loader2, ArrowLeft, Star, Mail, CheckCircle2, KeyRound, Hash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function getApiUrl(path: string) {
@@ -13,7 +13,7 @@ function getApiUrl(path: string) {
   return `${baseUrl}${cleanPath}`;
 }
 
-type View = "login" | "forgot" | "forgot-sent";
+type View = "login" | "forgot" | "forgot-code" | "forgot-newpass" | "forgot-success";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -22,6 +22,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<View>("login");
   const [forgotEmail, setForgotEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fallbackCode, setFallbackCode] = useState("");
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -80,11 +84,84 @@ export default function LoginPage() {
         throw new Error(data.message || "Erreur lors de l'envoi");
       }
 
-      setView("forgot-sent");
+      if (data.emailSent === false && data.code) {
+        // Email failed but we got a direct code (dev fallback)
+        setFallbackCode(data.code);
+      }
+
+      setView("forgot-code");
     } catch (error: any) {
       toast({
         title: "Erreur",
-        description: error.message || "Impossible d'envoyer l'email de réinitialisation",
+        description: error.message || "Impossible d'envoyer le code de réinitialisation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(getApiUrl("/api/verify-reset-code"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail, code: resetCode }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Code invalide");
+      }
+
+      setView("forgot-newpass");
+    } catch (error: any) {
+      toast({
+        title: "Code invalide",
+        description: error.message || "Le code est incorrect ou a expiré",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword.length < 6) {
+      toast({ title: "Erreur", description: "Le mot de passe doit contenir au moins 6 caractères", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Erreur", description: "Les mots de passe ne correspondent pas", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(getApiUrl("/api/reset-password"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail, code: resetCode, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de la réinitialisation");
+      }
+
+      setView("forgot-success");
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de réinitialiser le mot de passe",
         variant: "destructive",
       });
     } finally {
@@ -187,7 +264,7 @@ export default function LoginPage() {
               </div>
               <CardTitle className="text-2xl font-bold text-slate-900">Mot de passe oublié ?</CardTitle>
               <CardDescription className="text-gray-600">
-                Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                Entrez votre adresse email et nous vous enverrons un code à 5 chiffres pour réinitialiser votre mot de passe.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -211,7 +288,7 @@ export default function LoginPage() {
                   disabled={isLoading || !forgotEmail}
                 >
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Envoyer le lien de réinitialisation
+                  Envoyer le code
                 </Button>
                 <Button
                   type="button"
@@ -227,8 +304,131 @@ export default function LoginPage() {
           </>
         )}
 
-        {/* ===== EMAIL SENT SUCCESS VIEW ===== */}
-        {view === "forgot-sent" && (
+        {/* ===== CODE ENTRY VIEW ===== */}
+        {view === "forgot-code" && (
+          <>
+            <CardHeader className="space-y-1 text-center pt-8">
+              <div className="flex justify-center mb-4">
+                <div className="bg-gradient-to-br from-gold-400 to-gold-600 p-4 rounded-full shadow-xl shadow-gold-500/30">
+                  <Hash className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-slate-900">Entrez le code</CardTitle>
+              <CardDescription className="text-gray-600">
+                Un code à 5 chiffres a été envoyé à <strong className="text-slate-800">{forgotEmail}</strong>. Saisissez-le ci-dessous.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                {fallbackCode && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                    <p className="font-medium mb-1">⚠️ L'email n'a pas pu être envoyé</p>
+                    <p>Votre code : <strong className="font-mono text-lg">{fallbackCode}</strong></p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reset-code" className="text-gray-700">Code de vérification</Label>
+                  <Input
+                    id="reset-code"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{5}"
+                    maxLength={5}
+                    placeholder="12345"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                    required
+                    disabled={isLoading}
+                    className="border-gray-200 focus:border-crimson-400 focus:ring-crimson-400 text-center text-2xl tracking-[0.5em] font-mono"
+                  />
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  <p>⏰ Ce code expire dans <strong>15 minutes</strong>. Vérifiez vos spams si vous ne le voyez pas.</p>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700 shadow-lg shadow-crimson-500/25 border-0 h-11 text-base"
+                  disabled={isLoading || resetCode.length !== 5}
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Vérifier le code
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-gray-500 hover:text-crimson-600"
+                  onClick={() => { setResetCode(""); setFallbackCode(""); setView("forgot"); }}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Renvoyer un code
+                </Button>
+              </form>
+            </CardContent>
+          </>
+        )}
+
+        {/* ===== NEW PASSWORD VIEW ===== */}
+        {view === "forgot-newpass" && (
+          <>
+            <CardHeader className="space-y-1 text-center pt-8">
+              <div className="flex justify-center mb-4">
+                <div className="bg-gradient-to-br from-crimson-500 to-crimson-700 p-4 rounded-full shadow-xl shadow-crimson-500/30">
+                  <KeyRound className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-slate-900">Nouveau mot de passe</CardTitle>
+              <CardDescription className="text-gray-600">
+                Choisissez un nouveau mot de passe pour votre compte.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password" className="text-gray-700">Nouveau mot de passe</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Au moins 6 caractères"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={isLoading}
+                    className="border-gray-200 focus:border-crimson-400 focus:ring-crimson-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password" className="text-gray-700">Confirmer le mot de passe</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Retapez votre mot de passe"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={isLoading}
+                    className="border-gray-200 focus:border-crimson-400 focus:ring-crimson-400"
+                  />
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700 shadow-lg shadow-crimson-500/25 border-0 h-11 text-base"
+                  disabled={isLoading || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Réinitialiser le mot de passe
+                </Button>
+              </form>
+            </CardContent>
+          </>
+        )}
+
+        {/* ===== SUCCESS VIEW ===== */}
+        {view === "forgot-success" && (
           <>
             <CardHeader className="space-y-1 text-center pt-8">
               <div className="flex justify-center mb-4">
@@ -236,24 +436,17 @@ export default function LoginPage() {
                   <CheckCircle2 className="w-10 h-10 text-white" />
                 </div>
               </div>
-              <CardTitle className="text-2xl font-bold text-slate-900">Email envoyé !</CardTitle>
+              <CardTitle className="text-2xl font-bold text-slate-900">Mot de passe réinitialisé !</CardTitle>
               <CardDescription className="text-gray-600">
-                Si un compte est associé à <strong className="text-slate-800">{forgotEmail}</strong>, vous recevrez un email avec un lien pour réinitialiser votre mot de passe.
+                Votre mot de passe a été modifié avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                <p className="font-medium mb-1">📧 Vérifiez votre boîte de réception</p>
-                <p>Le lien expire dans <strong>1 heure</strong>. Pensez à vérifier vos spams si vous ne voyez pas l'email.</p>
-              </div>
+            <CardContent>
               <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-gray-500 hover:text-crimson-600"
-                onClick={() => setView("login")}
+                className="w-full bg-gradient-to-r from-crimson-500 to-crimson-600 hover:from-crimson-600 hover:to-crimson-700 shadow-lg shadow-crimson-500/25 border-0 h-11 text-base"
+                onClick={() => { setView("login"); setNewPassword(""); setConfirmPassword(""); setResetCode(""); }}
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Retour à la connexion
+                Se connecter
               </Button>
             </CardContent>
           </>

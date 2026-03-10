@@ -7,7 +7,7 @@ import type { AppRole } from "./jwt-auth";
 import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
-import { sendPasswordResetEmail } from "./email-service";
+import { sendPasswordResetCodeEmail, generateResetCode } from "./email-service";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 
@@ -32,10 +32,29 @@ const ForgotPasswordSchema = z.object({
   email: z.string().email("Adresse email invalide"),
 });
 
+const VerifyResetCodeSchema = z.object({
+  email: z.string().email("Adresse email invalide"),
+  code: z.string().length(5, "Le code doit contenir 5 chiffres"),
+});
+
 const ResetPasswordSchema = z.object({
-  token: z.string().min(1, "Token requis"),
+  email: z.string().email("Adresse email invalide"),
+  code: z.string().length(5, "Le code doit contenir 5 chiffres"),
   newPassword: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
 });
+
+// In-memory store for reset codes: email -> { code, expiresAt, attempts }
+const resetCodes = new Map<string, { code: string; expiresAt: Date; attempts: number }>();
+
+// Clean up expired codes every 5 minutes
+setInterval(() => {
+  const now = new Date();
+  for (const [email, data] of resetCodes.entries()) {
+    if (data.expiresAt < now) {
+      resetCodes.delete(email);
+    }
+  }
+}, 5 * 60 * 1000);
 
 export function registerJWTAuthRoutes(app: Express) {
   app.post("/api/signup", async (req, res) => {
@@ -197,7 +216,7 @@ export function registerJWTAuthRoutes(app: Express) {
     }
   });
 
-  // Forgot Password — sends a reset link via email
+  // Forgot Password — sends a 5-digit reset code via email
   app.post("/api/forgot-password", async (req, res) => {
     try {
       const input = ForgotPasswordSchema.parse(req.body);
@@ -210,29 +229,40 @@ export function registerJWTAuthRoutes(app: Express) {
 
       // Always return success to avoid email enumeration
       if (!user) {
-        return res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
+        return res.json({ message: "Si un compte existe avec cet email, un code de réinitialisation a été envoyé." });
       }
 
-      // Generate a short-lived JWT token for password reset (1 hour)
-      const resetToken = jwt.sign(
-        { userId: user.id, email: user.email, purpose: "password-reset" },
-        JWT_SECRET,
-        { expiresIn: "1h" }
-      );
+      // Generate a 5-digit code that expires in 15 minutes
+      const code = generateResetCode();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Store the code
+      resetCodes.set(input.email.toLowerCase(), { code, expiresAt, attempts: 0 });
 
       const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "Utilisateur";
 
+      let emailSent = false;
       try {
-        await sendPasswordResetEmail(user.email!, userName, resetToken);
-        console.log(`[FORGOT PASSWORD] Reset email sent to ${user.email}`);
+        await sendPasswordResetCodeEmail(user.email!, userName, code);
+        console.log(`[FORGOT PASSWORD] Reset code sent to ${user.email}`);
+        emailSent = true;
       } catch (emailErr: any) {
         console.error("[FORGOT PASSWORD] Email send failed:", emailErr?.message || emailErr);
-        return res.status(500).json({
-          message: "Impossible d'envoyer l'email de réinitialisation. Veuillez contacter l'administrateur."
-        });
       }
 
-      res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
+      if (emailSent) {
+        res.json({
+          message: "Si un compte existe avec cet email, un code de réinitialisation a été envoyé.",
+          emailSent: true
+        });
+      } else {
+        // Email failed — return the code directly so the user can still reset (dev/fallback)
+        res.json({
+          message: "L'envoi d'email a échoué. Voici votre code de réinitialisation.",
+          emailSent: false,
+          code
+        });
+      }
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
@@ -242,32 +272,72 @@ export function registerJWTAuthRoutes(app: Express) {
     }
   });
 
-  // Reset Password — verifies token and sets new password
+  // Verify Reset Code — checks if the code is valid before allowing password change
+  app.post("/api/verify-reset-code", async (req, res) => {
+    try {
+      const input = VerifyResetCodeSchema.parse(req.body);
+      const emailKey = input.email.toLowerCase();
+      const stored = resetCodes.get(emailKey);
+
+      if (!stored) {
+        return res.status(400).json({ message: "Aucun code de réinitialisation trouvé. Veuillez en demander un nouveau." });
+      }
+
+      if (stored.expiresAt < new Date()) {
+        resetCodes.delete(emailKey);
+        return res.status(400).json({ message: "Le code a expiré. Veuillez en demander un nouveau." });
+      }
+
+      if (stored.attempts >= 5) {
+        resetCodes.delete(emailKey);
+        return res.status(400).json({ message: "Trop de tentatives. Veuillez demander un nouveau code." });
+      }
+
+      if (stored.code !== input.code) {
+        stored.attempts++;
+        return res.status(400).json({ message: "Code incorrect.", attemptsLeft: 5 - stored.attempts });
+      }
+
+      res.json({ message: "Code vérifié avec succès.", valid: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Reset Password — verifies code and sets new password
   app.post("/api/reset-password", async (req, res) => {
     try {
       const input = ResetPasswordSchema.parse(req.body);
+      const emailKey = input.email.toLowerCase();
+      const stored = resetCodes.get(emailKey);
 
-      // Verify the reset token
-      let decoded: { userId: string; email: string; purpose: string };
-      try {
-        decoded = jwt.verify(
-          input.token,
-          JWT_SECRET
-        ) as any;
-      } catch (tokenErr) {
-        return res.status(400).json({ message: "Le lien de réinitialisation est invalide ou a expiré." });
+      if (!stored) {
+        return res.status(400).json({ message: "Aucun code de réinitialisation trouvé. Veuillez en demander un nouveau." });
       }
 
-      // Check the purpose claim
-      if (decoded.purpose !== "password-reset") {
-        return res.status(400).json({ message: "Token invalide." });
+      if (stored.expiresAt < new Date()) {
+        resetCodes.delete(emailKey);
+        return res.status(400).json({ message: "Le code a expiré. Veuillez en demander un nouveau." });
       }
 
-      // Find user
+      if (stored.code !== input.code) {
+        stored.attempts++;
+        if (stored.attempts >= 5) {
+          resetCodes.delete(emailKey);
+          return res.status(400).json({ message: "Trop de tentatives. Veuillez demander un nouveau code." });
+        }
+        return res.status(400).json({ message: "Code incorrect." });
+      }
+
+      // Find user by email
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.id, decoded.userId));
+        .where(eq(users.email, input.email));
 
       if (!user) {
         return res.status(404).json({ message: "Utilisateur introuvable." });
@@ -278,7 +348,10 @@ export function registerJWTAuthRoutes(app: Express) {
       await db
         .update(users)
         .set({ passwordHash: newPasswordHash, updatedAt: new Date() })
-        .where(eq(users.id, decoded.userId));
+        .where(eq(users.id, user.id));
+
+      // Remove the used code
+      resetCodes.delete(emailKey);
 
       res.json({ message: "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter." });
     } catch (err) {

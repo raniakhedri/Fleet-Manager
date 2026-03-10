@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, Phone, Mail, UserCircle, MoreHorizontal, UserX } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Edit2, Trash2, Phone, Mail, MoreHorizontal, UserX } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,9 +102,12 @@ export default function DriversPage() {
                   <TableRow key={driver.id} className="hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-medium text-slate-900">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
-                          {driver.firstName[0]}{driver.lastName[0]}
-                        </div>
+                        <Avatar className="w-10 h-10 border-2 border-blue-100 shadow-sm">
+                          <AvatarImage src={(driver as any).profileImageUrl || undefined} alt={`${driver.firstName} ${driver.lastName}`} />
+                          <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">
+                            {driver.firstName[0]}{driver.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
                         <div>
                           <div>{driver.firstName} {driver.lastName}</div>
                         </div>

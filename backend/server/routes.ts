@@ -270,14 +270,29 @@ export async function registerRoutes(
   // === Driver Routes ===
   
   app.get(api.drivers.list.path, isAuthenticatedJWT, async (req: any, res) => {
-    const drivers = await storage.getDrivers();
+    const allDrivers = await storage.getDrivers();
+
+    // Enrich drivers with profileImageUrl from users table
+    const enrichedDrivers = await Promise.all(
+      allDrivers.map(async (driver) => {
+        let profileImageUrl: string | null = null;
+        if (driver.userId) {
+          const [user] = await db.select({ profileImageUrl: users.profileImageUrl })
+            .from(users)
+            .where(eq(users.id, driver.userId));
+          profileImageUrl = user?.profileImageUrl || null;
+        }
+        return { ...driver, profileImageUrl };
+      })
+    );
+
     // If user is a driver, only return their own profile
     if (req.user.role === 'driver') {
       const userEmail = req.user.email;
-      const driver = drivers.find(d => d.email === userEmail);
+      const driver = enrichedDrivers.find(d => d.email === userEmail);
       res.json(driver ? [driver] : []);
     } else {
-      res.json(drivers);
+      res.json(enrichedDrivers);
     }
   });
 

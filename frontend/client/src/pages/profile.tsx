@@ -36,7 +36,9 @@ export default function ProfilePage() {
   // Find current driver
   const currentDriver = drivers?.find(d => d.email === user?.email);
 
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  // Use profile image from backend (enriched driver data) or local state
+  const [localProfileImage, setLocalProfileImage] = useState<string | null>(null);
+  const profileImage = localProfileImage || (currentDriver as any)?.profileImageUrl || null;
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -80,7 +82,7 @@ export default function ProfilePage() {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
-      setProfileImage(base64);
+      setLocalProfileImage(base64);
       uploadProfileImageMutation.mutate(base64);
     };
     reader.readAsDataURL(file);

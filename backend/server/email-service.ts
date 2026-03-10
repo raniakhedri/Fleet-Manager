@@ -196,7 +196,9 @@ export async function sendPasswordResetEmail(
   }
 
   const frontendUrl = process.env.FRONTEND_URL || '';
-  const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+  // Ensure the URL includes the base path (e.g., /Fleet-Manager for GitHub Pages)
+  const baseUrl = frontendUrl.endsWith('/Fleet-Manager') ? frontendUrl : `${frontendUrl}/Fleet-Manager`;
+  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@fleetguard.com';
   const senderName = process.env.BREVO_SENDER_NAME || 'FleetGuard';
 

@@ -22,13 +22,36 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [view, setView] = useState<View>("form");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [view, setView] = useState<View>(() => {
+    // Check if token exists on initial load
+    const params = new URLSearchParams(window.location.search);
+    const hasToken = params.get("token") || window.location.hash.includes("token=");
+    return hasToken ? "form" : "error";
+  });
+  const [errorMessage, setErrorMessage] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasToken = params.get("token") || window.location.hash.includes("token=");
+    return hasToken ? "" : "Le lien de réinitialisation est invalide. Aucun token trouvé dans l'URL.";
+  });
   const { toast } = useToast();
 
-  // Extract token from URL query params
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
+  // Extract token from URL query params (handle both direct URL and SPA redirect)
+  const getToken = (): string | null => {
+    // Try standard query params first
+    const params = new URLSearchParams(window.location.search);
+    let token = params.get("token");
+    if (token) return decodeURIComponent(token);
+
+    // Also try to extract from hash (in case of hash routing)
+    if (window.location.hash.includes("token=")) {
+      const hashParams = new URLSearchParams(window.location.hash.split("?")[1] || "");
+      token = hashParams.get("token");
+      if (token) return decodeURIComponent(token);
+    }
+
+    return null;
+  };
+  const token = getToken();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,5 +246,7 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
+
+
 
 

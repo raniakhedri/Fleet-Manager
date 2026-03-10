@@ -1,12 +1,15 @@
 import type { Express } from "express";
 import { z } from "zod";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { generateToken } from "./jwt-auth";
 import type { AppRole } from "./jwt-auth";
 import { db } from "./db";
 import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
 import { sendPasswordResetEmail } from "./email-service";
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 
 const SignupSchema = z.object({
   email: z.string().email(),
@@ -152,9 +155,8 @@ export function registerJWTAuthRoutes(app: Express) {
       }
 
       const token = authHeader.split(" ")[1];
-      const jwt = await import("jsonwebtoken");
-      const decoded = jwt.default.verify(token, process.env.JWT_SECRET || "dev-jwt-secret-change-in-production") as {
-        userId: number;
+      const decoded = jwt.verify(token, JWT_SECRET) as {
+        userId: string;
         email: string;
       };
 
@@ -212,10 +214,9 @@ export function registerJWTAuthRoutes(app: Express) {
       }
 
       // Generate a short-lived JWT token for password reset (1 hour)
-      const jwt = await import("jsonwebtoken");
-      const resetToken = jwt.default.sign(
+      const resetToken = jwt.sign(
         { userId: user.id, email: user.email, purpose: "password-reset" },
-        process.env.JWT_SECRET || "dev-jwt-secret-change-in-production",
+        JWT_SECRET,
         { expiresIn: "1h" }
       );
 
@@ -223,9 +224,12 @@ export function registerJWTAuthRoutes(app: Express) {
 
       try {
         await sendPasswordResetEmail(user.email!, userName, resetToken);
-      } catch (emailErr) {
-        console.error("[FORGOT PASSWORD] Email send failed:", emailErr);
-        // Still return success to not leak info, but log it
+        console.log(`[FORGOT PASSWORD] Reset email sent to ${user.email}`);
+      } catch (emailErr: any) {
+        console.error("[FORGOT PASSWORD] Email send failed:", emailErr?.message || emailErr);
+        return res.status(500).json({
+          message: "Impossible d'envoyer l'email de réinitialisation. Veuillez contacter l'administrateur."
+        });
       }
 
       res.json({ message: "Si un compte existe avec cet email, un lien de réinitialisation a été envoyé." });
@@ -244,12 +248,11 @@ export function registerJWTAuthRoutes(app: Express) {
       const input = ResetPasswordSchema.parse(req.body);
 
       // Verify the reset token
-      const jwt = await import("jsonwebtoken");
       let decoded: { userId: string; email: string; purpose: string };
       try {
-        decoded = jwt.default.verify(
+        decoded = jwt.verify(
           input.token,
-          process.env.JWT_SECRET || "dev-jwt-secret-change-in-production"
+          JWT_SECRET
         ) as any;
       } catch (tokenErr) {
         return res.status(400).json({ message: "Le lien de réinitialisation est invalide ou a expiré." });

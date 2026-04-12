@@ -43,8 +43,8 @@
         }
       }(window.location))
     </script>
-    <script type="module" crossorigin src="/Fleet-Manager/assets/index-46Ar-Vk7.js"></script>
-    <link rel="stylesheet" crossorigin href="/Fleet-Manager/assets/index-C6nyh4Rr.css">
+    <script type="module" crossorigin src="/Fleet-Manager/assets/index-BqwwXWlS.js"></script>
+    <link rel="stylesheet" crossorigin href="/Fleet-Manager/assets/index-Dcy8j1wj.css">
   </head>
   <body>
     <div id="root"></div>
@@ -53,7 +53,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/Fleet-Manager/sw.js')
+          const base = window.location.pathname.startsWith('/Fleet-Manager') ? '/Fleet-Manager/' : '/';
+          navigator.serviceWorker.register(base + 'sw.js')
             .then((registration) => {
               console.log('[PWA] Service Worker registered:', registration.scope);
             })

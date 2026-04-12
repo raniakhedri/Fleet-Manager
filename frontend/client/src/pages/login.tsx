@@ -8,7 +8,7 @@ import { Shield, Loader2, ArrowLeft, Star, Mail, CheckCircle2, KeyRound, Hash } 
 import { useToast } from "@/hooks/use-toast";
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }
@@ -17,7 +17,7 @@ type View = "login" | "forgot" | "forgot-code" | "forgot-newpass" | "forgot-succ
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
-  const [email, setEmail] = useState("");
+  const [matricule, setMatricule] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<View>("login");
@@ -36,7 +36,7 @@ export default function LoginPage() {
       const response = await fetch(getApiUrl("/api/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ matricule, password }),
       });
 
       const data = await response.json();
@@ -51,7 +51,7 @@ export default function LoginPage() {
 
       toast({
         title: "Connexion réussie",
-        description: `Bienvenue, ${data.user.firstName || data.user.email} !`,
+        description: `Bienvenue, ${data.user.firstName || data.user.matricule} !`,
       });
 
       // Redirect to dashboard
@@ -202,29 +202,33 @@ export default function LoginPage() {
                 </div>
               </div>
               <CardTitle className="text-2xl font-bold bg-gradient-to-r from-crimson-600 to-crimson-800 bg-clip-text text-transparent">FleetGuard</CardTitle>
-              <CardDescription className="text-gray-600">Connectez-vous à votre compte pour continuer</CardDescription>
+              <CardDescription className="text-gray-600">Connectez-vous avec votre matricule pour continuer</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700">Email</Label>
+                  <Label htmlFor="matricule" className="text-gray-700">Matricule</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="nom@exemple.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="matricule"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    placeholder="0123456789"
+                    value={matricule}
+                    onChange={(e) => setMatricule(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     required
                     disabled={isLoading}
-                    className="border-gray-200 focus:border-crimson-400 focus:ring-crimson-400"
+                    className="border-gray-200 focus:border-crimson-400 focus:ring-crimson-400 font-mono tracking-wider"
                   />
+                  <p className="text-xs text-slate-500">10 chiffres requis</p>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-gray-700">Mot de passe</Label>
                     <button
                       type="button"
-                      onClick={() => { setForgotEmail(email); setView("forgot"); }}
+                      onClick={() => { setView("forgot"); }}
                       className="text-xs text-crimson-600 hover:text-crimson-700 hover:underline font-medium transition-colors"
                     >
                       Mot de passe oublié ?

@@ -143,7 +143,7 @@ export default function DriverDashboard() {
                   key={mission.id}
                   mission={{ ...mission, priority: mission.priority || 'normal' }}
                   onStart={() => {}}
-                  onComplete={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}
+                  onComplete={(completionLat, completionLng) => updateStatusMutation.mutate({ id: mission.id, status: 'completed', completionLat, completionLng })}
                   isUpdating={updateStatusMutation.isPending}
                 />
               ))}
@@ -164,7 +164,7 @@ export default function DriverDashboard() {
                       <MissionTracker
                         mission={{ ...mission, priority: mission.priority || 'normal' }}
                         onStart={() => updateStatusMutation.mutate({ id: mission.id, status: 'in_progress' })}
-                        onComplete={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}
+                        onComplete={(completionLat, completionLng) => updateStatusMutation.mutate({ id: mission.id, status: 'completed', completionLat, completionLng })}
                         isUpdating={updateStatusMutation.isPending}
                       />
                     </div>

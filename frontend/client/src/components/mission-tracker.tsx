@@ -13,7 +13,9 @@ import {
   Crosshair,
   Gauge,
   Clock,
-  Route
+  Route,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -135,7 +137,7 @@ async function geocodeLocation(locationName: string): Promise<[number, number] |
   }
   
   try {
-    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
     const response = await fetch(
       `${apiBase}/geocode/search?q=${encodeURIComponent(locationName)}, Tunisia`
     );
@@ -159,6 +161,23 @@ function haversineKm(a: [number, number], b: [number, number]): number {
   const lat2 = (b[0] * Math.PI) / 180;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** Fetch a road-following route from OSRM (free). Returns array of [lat,lng] or null. */
+async function fetchRoute(from: [number, number], to: [number, number]): Promise<[number, number][] | null> {
+  try {
+    // OSRM uses lng,lat order
+    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+      // GeoJSON is [lng, lat], convert to [lat, lng]
+      return data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+    }
+  } catch (e) {
+    console.error('OSRM routing error:', e);
+  }
+  return null;
 }
 
 // ─── Map sub-components ───
@@ -202,7 +221,7 @@ interface Mission {
 interface MissionTrackerProps {
   mission: Mission;
   onStart: () => void;
-  onComplete: () => void;
+  onComplete: (completionLat?: number, completionLng?: number) => void;
   isUpdating?: boolean;
 }
 
@@ -218,7 +237,11 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
   const [isLoadingCoords, setIsLoadingCoords] = useState(true);
   const [followDriver, setFollowDriver] = useState(true);
   const [accuracy, setAccuracy] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [routePoints, setRoutePoints] = useState<[number, number][] | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const routeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Derived values
   const distanceToDestination = useMemo(() => {
@@ -273,6 +296,18 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
     load();
     return () => { cancelled = true; };
   }, [mission.endLocation]);
+
+  // Fetch road route when driver position or destination changes
+  useEffect(() => {
+    if (!driverPosition || !endCoords) return;
+    // Debounce route fetching to every 10 seconds
+    if (routeTimerRef.current) clearTimeout(routeTimerRef.current);
+    routeTimerRef.current = setTimeout(async () => {
+      const route = await fetchRoute(driverPosition, endCoords);
+      if (route) setRoutePoints(route);
+    }, routePoints ? 10000 : 0); // Fetch immediately first time, then debounce
+    return () => { if (routeTimerRef.current) clearTimeout(routeTimerRef.current); };
+  }, [driverPosition, endCoords]);
 
   // Start GPS tracking
   const startTracking = useCallback(() => {
@@ -336,7 +371,10 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
   }, []);
 
   const handleStart = () => { startTracking(); onStart(); };
-  const handleComplete = () => { stopTracking(); onComplete(); };
+  const handleComplete = () => {
+    stopTracking();
+    onComplete(driverPosition?.[0], driverPosition?.[1]);
+  };
 
   // Auto-start tracking if mission is already in_progress
   useEffect(() => {
@@ -356,8 +394,8 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
   const isInProgress = mission.status === "in_progress";
   const isPending = mission.status === "pending";
 
-  // Remaining route (driver → destination)
-  const remainingRoute = driverPosition && endCoords ? [driverPosition, endCoords] : [];
+  // Remaining route: use OSRM road route, fallback to straight line
+  const remainingRoute = routePoints || (driverPosition && endCoords ? [driverPosition, endCoords] : []);
 
   // Choose navigation icon
   const driverIcon = useMemo(() => {
@@ -375,7 +413,8 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
   };
 
   return (
-    <Card className="overflow-hidden shadow-lg border-0">
+    <div ref={containerRef} className={isFullscreen ? "fixed inset-0 z-[9999] bg-white flex flex-col" : ""}>
+    <Card className={`overflow-hidden shadow-lg border-0 ${isFullscreen ? "rounded-none flex-1 flex flex-col" : ""}`}>
       {/* Header */}
       <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4">
         <div className="flex items-center justify-between">
@@ -388,17 +427,28 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
               <p className="text-blue-100 text-sm mt-1 line-clamp-1">{mission.description}</p>
             )}
           </div>
-          <Badge className={
-            isInProgress ? "bg-white/20 text-white backdrop-blur" :
-            isPending ? "bg-white/20 text-white backdrop-blur" :
-            "bg-emerald-500 text-white"
-          }>
-            {isInProgress ? "🚗 Navigation" : isPending ? "En attente" : "Terminée"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={
+              isInProgress ? "bg-white/20 text-white backdrop-blur" :
+              isPending ? "bg-white/20 text-white backdrop-blur" :
+              "bg-emerald-500 text-white"
+            }>
+              {isInProgress ? "🚗 Navigation" : isPending ? "En attente" : "Terminée"}
+            </Badge>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-white hover:bg-white/20 w-8 h-8"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
+      <CardContent className={`p-0 ${isFullscreen ? "flex-1 flex flex-col" : ""}`}>
         {/* ── Stats bar (Google Maps-like) ── */}
         {isTracking && (
           <div className="grid grid-cols-3 divide-x bg-white border-b">
@@ -429,7 +479,7 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
         )}
 
         {/* ── Map ── */}
-        <div className="h-[420px] relative">
+        <div className={`${isFullscreen ? "flex-1" : "h-[420px]"} relative`}>
           {isLoadingCoords ? (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
               <div className="text-center">
@@ -459,11 +509,15 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
               <FitBounds bounds={mapBounds} />
               <FollowDriver position={driverPosition} shouldFollow={followDriver && isTracking} />
 
-              {/* Remaining route (gray dashed to destination) */}
-              {remainingRoute.length === 2 && (
+              {/* Remaining route (road-following to destination) */}
+              {remainingRoute.length >= 2 && (
                 <Polyline
                   positions={remainingRoute}
-                  pathOptions={{ color: "#9CA3AF", weight: 4, opacity: 0.7, dashArray: "8, 12" }}
+                  pathOptions={
+                    routePoints && routePoints.length > 0
+                      ? { color: "#6B7280", weight: 5, opacity: 0.6 }
+                      : { color: "#9CA3AF", weight: 4, opacity: 0.7, dashArray: "8, 12" }
+                  }
                 />
               )}
 
@@ -631,5 +685,6 @@ export function MissionTracker({ mission, onStart, onComplete, isUpdating }: Mis
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

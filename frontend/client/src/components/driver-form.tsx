@@ -2,17 +2,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateDriver, useUpdateDriver } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { Plus, Loader2, Car, AlertTriangle } from "lucide-react";
+import { Plus, Loader2, Car, AlertTriangle, Check, Copy } from "lucide-react";
 import { z } from "zod";
 
 // Custom form schema with strict validation
 const driverFormSchema = z.object({
+  matricule: z.string().length(10, "Le matricule doit contenir exactement 10 chiffres").regex(/^\d{10}$/, "Le matricule doit contenir uniquement des chiffres"),
   firstName: z.string().min(2, "Le prénom doit contenir au moins 2 caractères").max(50, "Prénom trop long"),
   lastName: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(50, "Nom trop long"),
   email: z.string().email("Adresse email invalide"),
@@ -27,6 +29,7 @@ type DriverFormData = z.infer<typeof driverFormSchema>;
 
 type Driver = {
   id: number;
+  matricule?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -44,6 +47,8 @@ interface DriverFormProps {
 
 export function DriverForm({ driver, trigger }: DriverFormProps) {
   const [open, setOpen] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{ matricule: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const createMutation = useCreateDriver();
   const updateMutation = useUpdateDriver();
   const { data: vehicles = [] } = useVehicles();
@@ -59,6 +64,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverFormSchema),
     defaultValues: driver ? {
+      matricule: driver.matricule || "",
       firstName: driver.firstName,
       lastName: driver.lastName,
       email: driver.email,
@@ -68,6 +74,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
       status: driver.status as "active" | "inactive" | "on_leave",
       assignedVehicleId: driver.assignedVehicleId || undefined,
     } : {
+      matricule: "",
       firstName: "",
       lastName: "",
       email: "",
@@ -89,7 +96,14 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
       if (isEditing && driver) {
         await updateMutation.mutateAsync({ id: driver.id, ...submitData });
       } else {
-        await createMutation.mutateAsync(submitData);
+        const result = await createMutation.mutateAsync(submitData);
+        if (result?.temporaryPassword) {
+          setCreatedCredentials({
+            matricule: data.matricule,
+            password: result.temporaryPassword,
+          });
+          setCopied(false);
+        }
       }
       setOpen(false);
       if (!isEditing) form.reset();
@@ -101,6 +115,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
@@ -115,6 +130,34 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <FormField
+              control={form.control}
+              name="matricule"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Matricule *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]{10}"
+                      maxLength={10}
+                      placeholder="0123456789" 
+                      {...field}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        field.onChange(value);
+                      }}
+                      className="font-mono tracking-wider"
+                      disabled={isEditing}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-slate-500">10 chiffres requis — utilisé pour la connexion</p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -162,7 +205,7 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email (optionnel)</FormLabel>
                   <FormControl>
                     <Input 
                       type="email" 
@@ -367,5 +410,59 @@ export function DriverForm({ driver, trigger }: DriverFormProps) {
         </Form>
       </DialogContent>
     </Dialog>
+
+    {/* Temporary Password Dialog */}
+    <Dialog open={!!createdCredentials} onOpenChange={(o) => { if (!o) setCreatedCredentials(null); }}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-emerald-700">
+            <Check className="w-5 h-5" />
+            Chauffeur créé avec succès
+          </DialogTitle>
+          <DialogDescription>
+            Voici le mot de passe temporaire. Veuillez le communiquer au chauffeur.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-4">
+          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <div>
+              <Label className="text-xs text-slate-500">Matricule</Label>
+              <p className="font-mono text-sm font-medium">{createdCredentials?.matricule}</p>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Mot de passe temporaire</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 bg-white border rounded px-3 py-2 font-mono text-sm font-bold tracking-wider">
+                  {createdCredentials?.password}
+                </code>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    if (createdCredentials) {
+                      navigator.clipboard.writeText(createdCredentials.password);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }}
+                  className="shrink-0"
+                >
+                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            ⚠️ Ce mot de passe ne sera plus affiché après fermeture. Assurez-vous de le copier.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setCreatedCredentials(null)}>
+            Fermer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

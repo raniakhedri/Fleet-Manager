@@ -52,7 +52,8 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/Fleet-Manager/sw.js')
+          const base = window.location.pathname.startsWith('/Fleet-Manager') ? '/Fleet-Manager/' : '/';
+          navigator.serviceWorker.register(base + 'sw.js')
             .then((registration) => {
               console.log('[PWA] Service Worker registered:', registration.scope);
             })

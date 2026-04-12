@@ -6,17 +6,17 @@ $env:PATH = "C:\Program Files\nodejs;C:\Program Files\nodejs\node_modules\npm\bi
 
 # Set environment variables
 $env:NODE_ENV = "development"
-$env:PORT = "3000"
-$env:DATABASE_URL = "postgres://postgres:raniakhedri@localhost:5432/ahmed"
+$env:PORT = "8000"
+$env:DATABASE_URL = "postgres://postgres:admin@localhost:5432/ahmed"
 $env:JWT_SECRET = "dev-jwt-secret-change-in-production"
 $env:SESSION_SECRET = "dev-session-secret"
-$env:REPL_ID = "fleet-local"
 
 Write-Host "Starting Fleet Manager..." -ForegroundColor Green
-Write-Host "Backend: http://127.0.0.1:3000" -ForegroundColor Cyan
-Write-Host "Frontend: http://localhost:5173" -ForegroundColor Cyan
+Write-Host "Backend: http://127.0.0.1:8000" -ForegroundColor Cyan
+Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
 Write-Host ""
 
 # Run dev server
+# Run dev server from backend directory
+Set-Location -Path "$PSScriptRoot\backend"
 npm.cmd run dev
-

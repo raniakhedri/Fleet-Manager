@@ -190,6 +190,8 @@ export const api = {
       input: z.object({
         status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
         notes: z.string().optional(),
+        completionLat: z.number().optional(),
+        completionLng: z.number().optional(),
       }),
       responses: {
         200: z.custom<typeof missions.$inferSelect>(),
@@ -238,7 +240,8 @@ export const api = {
         method: 'POST' as const,
         path: '/api/users',
         input: z.object({
-            email: z.string().email(),
+            matricule: z.string().length(10).regex(/^\d{10}$/),
+            email: z.string().email().optional(),
             firstName: z.string().optional(),
             lastName: z.string().optional(),
             role: z.enum(['superadmin', 'operateur']),

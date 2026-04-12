@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play, Users, User, Edit2, Trash2, MoreHorizontal, History, Filter, X } from "lucide-react";
+import { ClipboardList, MapPin, Calendar, AlertCircle, CheckCircle2, Clock, XCircle, Play, Users, User, Edit2, Trash2, MoreHorizontal, History, Filter, X, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useRef, useState } from "react";
+import { Timer } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +36,51 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Format a duration in ms to a human-readable string
+function formatDuration(ms: number): string {
+  if (ms < 0) ms = 0;
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}j ${hours}h ${minutes}min`;
+  if (hours > 0) return `${hours}h ${minutes}min ${seconds}s`;
+  return `${minutes}min ${seconds}s`;
+}
+
+// Hook that ticks every second so in-progress durations stay live
+function useNow(enabled: boolean) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enabled]);
+  return now;
+}
+
+// Complete a mission by first capturing the driver's current GPS position
+function completeMissionWithGps(
+  missionId: number,
+  mutate: (args: { id: number; status: string; completionLat?: number; completionLng?: number }) => void
+) {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mutate({ id: missionId, status: 'completed', completionLat: pos.coords.latitude, completionLng: pos.coords.longitude });
+      },
+      () => {
+        // If GPS unavailable, still complete but without coordinates (will be unconfirmed)
+        mutate({ id: missionId, status: 'completed' });
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  } else {
+    mutate({ id: missionId, status: 'completed' });
+  }
+}
+
 export default function MissionsPage() {
   const { data: missions, isLoading } = useMissions();
   const { data: drivers } = useDrivers();
@@ -51,6 +97,7 @@ export default function MissionsPage() {
   const driverMap = new Map(drivers?.map(d => [d.id, `${d.firstName} ${d.lastName}`]) || []);
   const vehicleMap = new Map(vehicles?.map(v => [v.id, `${v.name} - ${v.licensePlate} (${v.model})`]) || []);
   const { user, isAdmin, isOperateur, isChauffeur } = useUser();
+
   const { toast } = useToast();
   const previousMissionsCount = useRef<number>(0);
   
@@ -61,6 +108,10 @@ export default function MissionsPage() {
   const displayMissions = isAdmin 
     ? missions 
     : missions?.filter(m => m.driverId === currentDriver?.id);
+
+  // Tick every second when any mission is in_progress (for live duration)
+  const hasInProgress = displayMissions?.some(m => m.status === 'in_progress') ?? (missions?.some(m => m.status === 'in_progress') ?? false);
+  const now = useNow(hasInProgress);
 
   // Driver-specific splits
   const activeMissions = displayMissions?.filter(m => m.status === 'pending' || m.status === 'in_progress') || [];
@@ -152,6 +203,24 @@ export default function MissionsPage() {
     );
   };
 
+  const getConfirmationBadge = (mission: any) => {
+    if (mission.status !== 'completed') return null;
+    if (mission.confirmedCompletion) {
+      return (
+        <Badge className="border-0 font-medium flex items-center gap-1 bg-emerald-500/15 text-emerald-700">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          Confirmée
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="border-0 font-medium flex items-center gap-1 bg-amber-500/15 text-amber-700">
+        <ShieldAlert className="w-3.5 h-3.5" />
+        Non confirmée
+      </Badge>
+    );
+  };
+
   // Reusable mission card for driver view
   const DriverMissionCard = ({ mission, showActions = true }: { mission: any; showActions?: boolean }) => (
     <Card key={mission.id} className={`border-none shadow-md hover:shadow-lg transition-shadow ${mission.status === 'completed' ? 'opacity-80' : ''} ${mission.status === 'cancelled' ? 'opacity-60' : ''}`}>
@@ -162,6 +231,7 @@ export default function MissionsPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {getStatusBadge(mission.status)}
               {mission.priority && getPriorityBadge(mission.priority)}
+              {getConfirmationBadge(mission)}
             </div>
           </div>
         </div>
@@ -181,6 +251,22 @@ export default function MissionsPage() {
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Calendar className="w-4 h-4 text-slate-400" />
             <span>{format(new Date(mission.scheduledStart), "PPp", { locale: fr })}</span>
+          </div>
+        )}
+        {/* Mission duration */}
+        {(mission.status === 'in_progress' || mission.status === 'completed' || mission.status === 'cancelled') && (mission as any).actualStart && (
+          <div className={`flex items-center gap-2 text-sm font-medium ${
+            mission.status === 'in_progress' ? 'text-amber-700' : 'text-slate-600'
+          }`}>
+            <Timer className="w-4 h-4" />
+            <span>
+              Durée : {formatDuration(
+                (mission as any).actualEnd
+                  ? new Date((mission as any).actualEnd).getTime() - new Date((mission as any).actualStart).getTime()
+                  : now - new Date((mission as any).actualStart).getTime()
+              )}
+              {mission.status === 'in_progress' && <span className="ml-1 animate-pulse">●</span>}
+            </span>
           </div>
         )}
         {((mission as any).coPilot || (mission as any).passengersCount) && (
@@ -220,7 +306,7 @@ export default function MissionsPage() {
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}
+                  onClick={() => completeMissionWithGps(mission.id, updateStatusMutation.mutate)}
                   disabled={updateStatusMutation.isPending}
                 >
                   <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -280,6 +366,7 @@ export default function MissionsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {getStatusBadge(mission.status)}
                         {mission.priority && getPriorityBadge(mission.priority)}
+                        {getConfirmationBadge(mission)}
                       </div>
                     </div>
                   </div>
@@ -299,6 +386,22 @@ export default function MissionsPage() {
                     <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Calendar className="w-4 h-4 text-slate-400" />
                       <span>Prévu : {format(new Date(mission.scheduledStart), "PPp", { locale: fr })}</span>
+                    </div>
+                  )}
+                  {/* Mission duration */}
+                  {(mission.status === 'in_progress' || mission.status === 'completed' || mission.status === 'cancelled') && (mission as any).actualStart && (
+                    <div className={`flex items-center gap-2 text-sm font-medium ${
+                      mission.status === 'in_progress' ? 'text-amber-700' : 'text-slate-600'
+                    }`}>
+                      <Timer className="w-4 h-4" />
+                      <span>
+                        Durée : {formatDuration(
+                          (mission as any).actualEnd
+                            ? new Date((mission as any).actualEnd).getTime() - new Date((mission as any).actualStart).getTime()
+                            : now - new Date((mission as any).actualStart).getTime()
+                        )}
+                        {mission.status === 'in_progress' && <span className="ml-1 animate-pulse">●</span>}
+                      </span>
                     </div>
                   )}
                   {((mission as any).coPilot || (mission as any).passengersCount) && (
@@ -330,7 +433,7 @@ export default function MissionsPage() {
                       )}
                       {isChauffeur && mission.status === 'in_progress' && (
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => updateStatusMutation.mutate({ id: mission.id, status: 'completed' })}>
+                          onClick={() => completeMissionWithGps(mission.id, updateStatusMutation.mutate)}>
                           <CheckCircle2 className="w-3 h-3 mr-1" />Terminer
                         </Button>
                       )}

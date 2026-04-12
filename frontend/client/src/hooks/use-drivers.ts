@@ -11,7 +11,7 @@ function getAuthHeaders() {
 }
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }
@@ -68,17 +68,11 @@ export function useCreateDriver() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [api.drivers.list.path] });
       
-      // Check if email was sent or if we need to show the password
-      if (data.temporaryPassword) {
-        toast({
-          title: "Chauffeur créé",
-          description: `Email non envoyé. Mot de passe temporaire : ${data.temporaryPassword}`,
-          duration: 30000, // Show for 30 seconds
-        });
-      } else {
+      // Password display is handled by the driver form dialog
+      if (!data.temporaryPassword) {
         toast({
           title: "Succès",
-          description: "Chauffeur ajouté. Un email avec les identifiants a été envoyé.",
+          description: "Chauffeur ajouté avec succès.",
         });
       }
     },

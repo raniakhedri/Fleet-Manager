@@ -12,14 +12,14 @@ function getAuthHeaders() {
 }
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }
 
 /** Build the WebSocket URL from the API base URL */
 function getWsUrl(): string {
-  const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
   // Strip the /api suffix to get the server origin
   const origin = apiBase.replace(/\/api\/?$/, "");
   // Switch protocol to ws(s)

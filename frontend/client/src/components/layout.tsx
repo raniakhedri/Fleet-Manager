@@ -30,7 +30,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    window.location.href = "/Fleet-Manager/login";
+    const base = import.meta.env.PROD ? "/Fleet-Manager" : "";
+    window.location.href = `${base}/login`;
   };
 
   // Build nav items based on role
@@ -111,7 +112,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <p className="text-sm font-medium text-white truncate">
               {user?.firstName} {user?.lastName || user?.username}
             </p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            <p className="text-xs text-gray-500 truncate font-mono">{user?.matricule || user?.email}</p>
             {isAdmin && (
               <Badge className="mt-1 text-xs bg-gradient-to-r from-gold-500 to-gold-600 text-gray-900 border-0">
                 <Shield className="w-3 h-3 mr-1" />

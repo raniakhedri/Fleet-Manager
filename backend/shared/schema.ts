@@ -65,6 +65,7 @@ export const missions = pgTable("missions", {
   scheduledEnd: timestamp("scheduled_end"),
   actualEnd: timestamp("actual_end"),
   distance: doublePrecision("distance"), // in km
+  confirmedCompletion: boolean("confirmed_completion").default(false), // true if driver GPS matched endpoint
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -169,9 +170,10 @@ export const insertDriverSchema = createInsertSchema(drivers, {
 })
   .omit({ id: true, createdAt: true, updatedAt: true })
   .extend({
+    matricule: z.string().length(10).regex(/^\d{10}$/, "Le matricule doit contenir exactement 10 chiffres"),
     firstName: z.string().min(2, "First name must be at least 2 characters").max(50, "First name too long"),
     lastName: z.string().min(2, "Last name must be at least 2 characters").max(50, "Last name too long"),
-    email: z.string().email("Invalid email address"),
+    email: z.string().email("Invalid email address").optional().default(""),
     phoneNumber: z.string().min(8, "Phone number must be at least 8 characters").max(20, "Phone number too long"),
     licenseNumber: z.string().min(5, "License number must be at least 5 characters").max(30, "License number too long"),
     status: z.enum(["active", "inactive", "on_leave"]).default("active"),

@@ -69,7 +69,7 @@ function MapClickHandler({
       const { lat, lng } = e.latlng;
       // Try to get location name via reverse geocoding
       try {
-        const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+        const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
         const response = await fetch(
           `${apiBase}/geocode/reverse?lat=${lat}&lon=${lng}`
         );

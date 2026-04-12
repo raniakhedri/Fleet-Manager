@@ -55,7 +55,7 @@ export interface IStorage {
   createMission(mission: InsertMission): Promise<Mission>;
   updateMission(id: number, updates: Partial<InsertMission>): Promise<Mission>;
   deleteMission(id: number): Promise<void>;
-  updateMissionStatus(id: number, status: string, notes?: string): Promise<Mission>;
+  updateMissionStatus(id: number, status: string, notes?: string, completionLat?: number, completionLng?: number): Promise<Mission>;
 
   // GPS Tracking
   getGpsPositions(): Promise<GpsTracking[]>;
@@ -232,7 +232,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(missions).where(eq(missions.id, id));
   }
 
-  async updateMissionStatus(id: number, status: string, notes?: string): Promise<Mission> {
+  async updateMissionStatus(id: number, status: string, notes?: string, completionLat?: number, completionLng?: number): Promise<Mission> {
     const updateData: any = { 
       status, 
       updatedAt: new Date() 
@@ -247,6 +247,27 @@ export class DatabaseStorage implements IStorage {
 
     if (notes) {
       updateData.notes = notes;
+    }
+
+    // Check if driver GPS matches endpoint for confirmed completion
+    if (status === 'completed' && completionLat !== undefined && completionLng !== undefined) {
+      // Fetch the mission to get the end coordinates
+      const [currentMission] = await db.select().from(missions).where(eq(missions.id, id));
+      if (currentMission?.endLat && currentMission?.endLng) {
+        const R = 6371;
+        const dLat = ((currentMission.endLat - completionLat) * Math.PI) / 180;
+        const dLon = ((currentMission.endLng - completionLng) * Math.PI) / 180;
+        const lat1 = (completionLat * Math.PI) / 180;
+        const lat2 = (currentMission.endLat * Math.PI) / 180;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        const distKm = 2 * R * Math.asin(Math.sqrt(h));
+        // Confirmed if within 1km of the endpoint
+        updateData.confirmedCompletion = distKm <= 1;
+      } else {
+        updateData.confirmedCompletion = false;
+      }
+    } else if (status === 'completed') {
+      updateData.confirmedCompletion = false;
     }
 
     const [mission] = await db

@@ -22,7 +22,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    window.location.href = "/Fleet-Manager/login";
+    const base = import.meta.env.PROD ? "/Fleet-Manager" : "";
+    window.location.href = `${base}/login`;
   };
 
   const navItems = [

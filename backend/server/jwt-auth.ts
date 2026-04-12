@@ -8,7 +8,8 @@ export type AppRole = "superadmin" | "operateur" | "chauffeur";
 
 export interface JWTPayload {
   userId: string;
-  email: string;
+  matricule: string;
+  email?: string;
   role: AppRole;
   firstName?: string;
   lastName?: string;

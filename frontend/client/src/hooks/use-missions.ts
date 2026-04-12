@@ -11,7 +11,7 @@ function getAuthHeaders() {
 }
 
 function getApiUrl(path: string) {
-  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:3000/api");
+  const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
   const cleanPath = path.startsWith("/api") ? path.substring(4) : path;
   return `${baseUrl}${cleanPath}`;
 }
@@ -116,12 +116,12 @@ export function useUpdateMissionStatus() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ id, status, notes }: { id: number; status: string; notes?: string }) => {
+    mutationFn: async ({ id, status, notes, completionLat, completionLng }: { id: number; status: string; notes?: string; completionLat?: number; completionLng?: number }) => {
       const url = buildUrl(api.missions.updateStatus.path, { id });
       const res = await fetch(getApiUrl(url), {
         method: "PATCH",
         headers: getAuthHeaders(),
-        body: JSON.stringify({ status, notes }),
+        body: JSON.stringify({ status, notes, completionLat, completionLng }),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update mission status");

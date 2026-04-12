@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import https from "https";
 import { storage } from "./storage";
 import { isAuthenticatedJWT, requireRole } from "./jwt-auth";
 import { registerJWTAuthRoutes } from "./jwt-routes";
@@ -9,7 +10,7 @@ import bcrypt from "bcrypt";
 import { db } from "./db";
 import { users, userRoles, vehicles, drivers, gpsTracking } from "@shared/schema";
 import { eq, lte, gte, and } from "drizzle-orm";
-import { generateRandomPassword, sendDriverCredentialsEmail, sendLicenseExpiryWarningToDriver, sendLicenseExpiryNotificationToAdmin } from "./email-service";
+import { generateRandomPassword, sendLicenseExpiryWarningToDriver, sendLicenseExpiryNotificationToAdmin } from "./email-service";
 import { broadcastGpsUpdate } from "./websocket";
 
 // Function to check for expiring licenses and send notifications
@@ -338,10 +339,10 @@ export async function registerRoutes(
     try {
       const input = api.drivers.create.input.parse(req.body);
       
-      // Check if driver with this email already exists in drivers table
-      const existingDriver = await storage.getDriverByEmail(input.email);
-      if (existingDriver) {
-        return res.status(400).json({ message: 'Un chauffeur avec cet email existe déjà.' });
+      // Check if matricule already exists in users table
+      const existingMatricule = await db.select().from(users).where(eq(users.matricule, input.matricule));
+      if (existingMatricule.length > 0) {
+        return res.status(400).json({ message: 'Un utilisateur avec ce matricule existe déjà.' });
       }
 
       // Check if a driver with this license number already exists
@@ -350,22 +351,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: `Le numéro de permis "${input.licenseNumber}" est déjà utilisé par un autre chauffeur.` });
       }
       
-      // Check if email already exists in users table (orphaned record)
-      const existingUser = await db.select().from(users).where(eq(users.email, input.email));
-      if (existingUser.length > 0) {
-        // Orphaned user record - delete it before creating new one
-        await db.delete(userRoles).where(eq(userRoles.userId, existingUser[0].id));
-        await db.delete(users).where(eq(users.id, existingUser[0].id));
-        console.log(`[DRIVER] Cleaned up orphaned user record for ${input.email}`);
-      }
-      
       // Generate random password
       const password = generateRandomPassword();
       const hashedPassword = await bcrypt.hash(password, 10);
       
       // Create auth user for the driver
       const [authUser] = await db.insert(users).values({
-        email: input.email,
+        matricule: input.matricule,
+        email: input.email || null,
         firstName: input.firstName,
         lastName: input.lastName,
         passwordHash: hashedPassword,
@@ -377,9 +370,11 @@ export async function registerRoutes(
         role: 'driver',
       });
       
-      // Create driver record linked to auth user
+      // Create driver record linked to auth user (without matricule which is auth-only)
+      const { matricule: _matricule, ...driverInput } = input;
       const driver = await storage.createDriver({
-        ...input,
+        ...driverInput,
+        email: input.email || `${input.matricule}@driver.local`,
         userId: authUser.id,
       });
       
@@ -390,26 +385,12 @@ export async function registerRoutes(
           .where(eq(vehicles.id, input.assignedVehicleId));
       }
       
-      // Send credentials email
-      let emailSent = false;
-      try {
-        await sendDriverCredentialsEmail(
-          input.email,
-          `${input.firstName} ${input.lastName}`,
-          password
-        );
-        emailSent = true;
-        console.log(`[DRIVER] Created driver and sent credentials to ${input.email}`);
-      } catch (emailError) {
-        console.error('[DRIVER] Failed to send email:', emailError);
-        // Continue anyway - driver is created, admin can manually share credentials
-      }
+      console.log(`[DRIVER] Created driver with matricule ${input.matricule}`);
       
-      // Return driver with temporary password if email failed (for admin to share manually)
+      // Always return temporary password for admin to share manually
       res.status(201).json({
         ...driver,
-        temporaryPassword: emailSent ? undefined : password,
-        emailSent
+        temporaryPassword: password,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -586,7 +567,9 @@ export async function registerRoutes(
       const mission = await storage.updateMissionStatus(
         missionId,
         input.status,
-        input.notes
+        input.notes,
+        input.completionLat,
+        input.completionLng
       );
       if (!mission) return res.status(404).json({ message: "Mission not found" });
 
@@ -670,6 +653,7 @@ export async function registerRoutes(
   app.get(api.users.list.path, isAuthenticatedJWT, requireRole("superadmin", "operateur"), async (req, res) => {
     const allUsers = await db.select({
       id: users.id,
+      matricule: users.matricule,
       email: users.email,
       firstName: users.firstName,
       lastName: users.lastName,
@@ -690,17 +674,18 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Les chauffeurs doivent être créés depuis la page Chauffeurs" });
       }
 
-      // Check if user already exists
-      const existing = await db.select().from(users).where(eq(users.email, input.email));
+      // Check if user with this matricule already exists
+      const existing = await db.select().from(users).where(eq(users.matricule, input.matricule));
       if (existing.length > 0) {
-        return res.status(400).json({ message: "Un utilisateur avec cet email existe déjà" });
+        return res.status(400).json({ message: "Un utilisateur avec ce matricule existe déjà" });
       }
 
-      // Generate random password (like driver creation)
+      // Generate random password
       const password = generateRandomPassword();
       const passwordHash = await bcrypt.hash(password, 10);
 
       const [newUser] = await db.insert(users).values({
+        matricule: input.matricule,
         email: input.email,
         passwordHash,
         firstName: input.firstName,
@@ -708,29 +693,15 @@ export async function registerRoutes(
         role: input.role,
       }).returning();
 
-      // Send credentials email
-      let emailSent = false;
-      try {
-        await sendDriverCredentialsEmail(
-          input.email,
-          [input.firstName, input.lastName].filter(Boolean).join(' ') || input.email,
-          password
-        );
-        emailSent = true;
-        console.log(`[USER] Created user and sent credentials to ${input.email}`);
-      } catch (emailError) {
-        console.error('[USER] Failed to send email:', emailError);
-      }
-
       res.status(201).json({
         id: newUser.id,
+        matricule: newUser.matricule,
         email: newUser.email,
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         role: newUser.role,
         createdAt: newUser.createdAt,
         temporaryPassword: password,
-        emailSent,
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -790,7 +761,7 @@ export async function registerRoutes(
   // ── Geocoding proxy (avoids CORS issues from GitHub Pages) ──
   // Uses LocationIQ (Nominatim-compatible API, works from cloud servers)
   const LOCATIONIQ_KEY = process.env.LOCATIONIQ_KEY || "pk.d017b8f15c947d3dc177efd3507600cc";
-  const nodeHttps = require("https");
+  const nodeHttps = https;
 
   function httpsGetJson(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -896,16 +867,17 @@ async function seedDatabase() {
 
 async function seedUsers() {
     try {
-        // Check if rania (admin) exists
-        const [raniaUser] = await db
+        // Check if superadmin exists by matricule
+        const [adminUser] = await db
             .select()
             .from(users)
-            .where(eq(users.email, "ahmed@admin.com"));
+            .where(eq(users.matricule, "1234567890"));
 
-        if (!raniaUser) {
-            console.log("Creating superadmin user: ahmed@admin.com");
+        if (!adminUser) {
+            console.log("Creating superadmin user: matricule 1234567890");
             const ahmedHash = await bcrypt.hash("ahmedznati", 10);
             await db.insert(users).values({
+                matricule: "1234567890",
                 email: "ahmed@admin.com",
                 passwordHash: ahmedHash,
                 firstName: "Ahmed",
@@ -914,16 +886,17 @@ async function seedUsers() {
             });
         }
 
-        // Check if ahmed (driver) exists
-        const [ahmedUser] = await db
+        // Check if driver exists by matricule
+        const [driverUser] = await db
             .select()
             .from(users)
-            .where(eq(users.email, "ahmed@driver.com"));
+            .where(eq(users.matricule, "0987654321"));
 
-        if (!ahmedUser) {
-            console.log("Creating driver user: ahmed@driver.com");
+        if (!driverUser) {
+            console.log("Creating driver user: matricule 0987654321");
             const ahmedHash = await bcrypt.hash("ahmedznati", 10);
             const [newAhmedUser] = await db.insert(users).values({
+                matricule: "0987654321",
                 email: "ahmed@driver.com",
                 passwordHash: ahmedHash,
                 firstName: "Ahmed",
@@ -938,7 +911,7 @@ async function seedUsers() {
             
             // Create driver record for Ahmed
             const existingDriver = await storage.getDrivers();
-            const ahmedDriver = existingDriver.find(d => d.email === "ahmed@driver.com");
+            const ahmedDriver = existingDriver.find(d => d.userId === newAhmedUser.id);
             
             if (!ahmedDriver) {
                 await storage.createDriver({
@@ -955,13 +928,13 @@ async function seedUsers() {
                 console.log("Created driver record for Ahmed");
             }
         } else {
-            // If Ahmed exists, make sure he has a driver record
+            // If driver user exists, make sure he has a driver record
             const existingDriver = await storage.getDrivers();
-            const ahmedDriver = existingDriver.find(d => d.email === "ahmed@driver.com");
+            const ahmedDriver = existingDriver.find(d => d.userId === driverUser.id);
             
             if (!ahmedDriver) {
                 await storage.createDriver({
-                    userId: ahmedUser.id,
+                    userId: driverUser.id,
                     firstName: "Ahmed",
                     lastName: "Znati",
                     email: "ahmed@driver.com",

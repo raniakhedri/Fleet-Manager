@@ -12,14 +12,15 @@ import { sendPasswordResetCodeEmail, generateResetCode } from "./email-service";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
 
 const SignupSchema = z.object({
-  email: z.string().email(),
+  matricule: z.string().length(10, "Le matricule doit contenir 10 chiffres").regex(/^\d{10}$/, "Le matricule doit contenir uniquement des chiffres"),
   password: z.string().min(6),
+  email: z.string().email().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 });
 
 const LoginSchema = z.object({
-  email: z.string().email(),
+  matricule: z.string().length(10, "Le matricule doit contenir 10 chiffres").regex(/^\d{10}$/, "Le matricule doit contenir uniquement des chiffres"),
   password: z.string(),
 });
 
@@ -65,10 +66,10 @@ export function registerJWTAuthRoutes(app: Express) {
       const existing = await db
         .select()
         .from(users)
-        .where(eq(users.email, input.email));
+        .where(eq(users.matricule, input.matricule));
 
       if (existing.length > 0) {
-        return res.status(400).json({ message: "User already exists" });
+        return res.status(400).json({ message: "Un utilisateur avec ce matricule existe déjà" });
       }
 
       // Hash password
@@ -78,18 +79,20 @@ export function registerJWTAuthRoutes(app: Express) {
       const [newUser] = await db
         .insert(users)
         .values({
+          matricule: input.matricule,
           email: input.email,
           passwordHash,
           firstName: input.firstName,
           lastName: input.lastName,
-          role: "chauffeur", // Default to chauffeur role on signup
+          role: "chauffeur",
         })
         .returning();
 
       // Generate JWT
       const token = generateToken({
         userId: newUser.id,
-        email: newUser.email!,
+        matricule: newUser.matricule,
+        email: newUser.email || undefined,
         role: (newUser.role || "chauffeur") as AppRole,
         firstName: newUser.firstName || undefined,
         lastName: newUser.lastName || undefined,
@@ -119,11 +122,11 @@ export function registerJWTAuthRoutes(app: Express) {
     try {
       const input = LoginSchema.parse(req.body);
 
-      // Find user by email
+      // Find user by matricule
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.email, input.email));
+        .where(eq(users.matricule, input.matricule));
 
       if (!user || !user.passwordHash) {
         return res.status(401).json({ message: "Invalid credentials" });
@@ -138,7 +141,8 @@ export function registerJWTAuthRoutes(app: Express) {
       // Generate JWT
       const token = generateToken({
         userId: user.id,
-        email: user.email!,
+        matricule: user.matricule,
+        email: user.email || undefined,
         role: (user.role || "chauffeur") as AppRole,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
@@ -149,6 +153,7 @@ export function registerJWTAuthRoutes(app: Express) {
         token,
         user: {
           id: user.id,
+          matricule: user.matricule,
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
@@ -176,7 +181,7 @@ export function registerJWTAuthRoutes(app: Express) {
       const token = authHeader.split(" ")[1];
       const decoded = jwt.verify(token, JWT_SECRET) as {
         userId: string;
-        email: string;
+        matricule: string;
       };
 
       const input = ChangePasswordSchema.parse(req.body);

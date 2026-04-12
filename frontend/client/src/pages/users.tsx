@@ -63,7 +63,7 @@ function getUserDisplayName(user: any): string {
   if (user.firstName || user.lastName) {
     return [user.firstName, user.lastName].filter(Boolean).join(" ");
   }
-  return user.email || "Utilisateur";
+  return user.matricule || user.email || "Utilisateur";
 }
 
 function getUserInitials(user: any): string {
@@ -78,9 +78,10 @@ export default function UsersPage() {
   const deleteMutation = useDeleteUser();
   const createMutation = useCreateUser();
   const [createOpen, setCreateOpen] = useState(false);
-  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string; emailSent: boolean } | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{ matricule: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [newUser, setNewUser] = useState({
+    matricule: "",
     email: "",
     firstName: "",
     lastName: "",
@@ -100,16 +101,17 @@ export default function UsersPage() {
   };
 
   const handleCreate = () => {
-    if (!newUser.email) return;
-    createMutation.mutate(newUser, {
+    if (!newUser.matricule || newUser.matricule.length !== 10) return;
+    const payload: any = { ...newUser };
+    if (!payload.email) delete payload.email;
+    createMutation.mutate(payload, {
       onSuccess: (data: any) => {
         setCreateOpen(false);
-        setNewUser({ email: "", firstName: "", lastName: "", role: "operateur" });
+        setNewUser({ matricule: "", email: "", firstName: "", lastName: "", role: "operateur" });
         if (data?.temporaryPassword) {
           setCreatedCredentials({
-            email: data.email,
+            matricule: data.matricule || newUser.matricule,
             password: data.temporaryPassword,
-            emailSent: data.emailSent ?? false,
           });
           setCopied(false);
         }
@@ -162,10 +164,26 @@ export default function UsersPage() {
               <DialogHeader>
                 <DialogTitle>Nouvel Utilisateur</DialogTitle>
                 <DialogDescription>
-                  Créez un compte pour un opérateur ou super admin. Un mot de passe aléatoire sera généré et envoyé par email.
+                  Créez un compte pour un opérateur ou super admin. Un mot de passe aléatoire sera généré.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="matricule">Matricule *</Label>
+                  <Input
+                    id="matricule"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    placeholder="0123456789"
+                    value={newUser.matricule}
+                    onChange={(e) => setNewUser({ ...newUser, matricule: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                    required
+                    className="font-mono tracking-wider"
+                  />
+                  <p className="text-xs text-slate-500">10 chiffres requis</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Prénom</Label>
@@ -187,14 +205,13 @@ export default function UsersPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Email (optionnel)</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="jean@example.com"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -219,7 +236,7 @@ export default function UsersPage() {
                 </Button>
                 <Button
                   onClick={handleCreate}
-                  disabled={!newUser.email || createMutation.isPending}
+                  disabled={!newUser.matricule || newUser.matricule.length !== 10 || createMutation.isPending}
                 >
                   {createMutation.isPending ? "Création..." : "Créer l'utilisateur"}
                 </Button>
@@ -236,16 +253,14 @@ export default function UsersPage() {
                   Utilisateur créé avec succès
                 </DialogTitle>
                 <DialogDescription>
-                  {createdCredentials?.emailSent
-                    ? "Les identifiants ont été envoyés par email. Voici le mot de passe temporaire :"
-                    : "L'email n'a pas pu être envoyé. Veuillez communiquer ces identifiants manuellement :"}
+                  Voici le mot de passe temporaire. Veuillez le communiquer à l'utilisateur.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-4">
                 <div className="bg-slate-50 rounded-lg p-4 space-y-3">
                   <div>
-                    <Label className="text-xs text-slate-500">Email</Label>
-                    <p className="font-mono text-sm font-medium">{createdCredentials?.email}</p>
+                    <Label className="text-xs text-slate-500">Matricule</Label>
+                    <p className="font-mono text-sm font-medium">{createdCredentials?.matricule}</p>
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500">Mot de passe temporaire</Label>
@@ -310,6 +325,7 @@ export default function UsersPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="font-semibold">Utilisateur</TableHead>
+                    <TableHead className="font-semibold">Matricule</TableHead>
                     <TableHead className="font-semibold">Email</TableHead>
                     <TableHead className="font-semibold">Rôle actuel</TableHead>
                     <TableHead className="font-semibold">Changer le rôle</TableHead>
@@ -338,7 +354,8 @@ export default function UsersPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-600">{user.email}</TableCell>
+                        <TableCell className="font-mono text-sm text-slate-600">{user.matricule || "—"}</TableCell>
+                        <TableCell className="text-slate-600">{user.email || "—"}</TableCell>
                         <TableCell>{getRoleBadge(user.role)}</TableCell>
                         <TableCell>
                           {isSelf ? (

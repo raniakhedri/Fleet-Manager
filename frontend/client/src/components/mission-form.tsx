@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateMission, useUpdateMission, useMissions } from "@/hooks/use-missions";
@@ -80,6 +80,64 @@ interface MissionFormProps {
   trigger?: React.ReactNode;
 }
 
+const driverStatusLabels: Record<string, string> = {
+  active: "disponible",
+  inactive: "inactif",
+  on_leave: "en congé",
+};
+
+// Tunisia cities for coordinate lookup
+const cityCoordinates: Record<string, [number, number]> = {
+  "tunis": [36.8065, 10.1815],
+  "sfax": [34.7406, 10.7603],
+  "sousse": [35.8254, 10.6084],
+  "kairouan": [35.6781, 10.0963],
+  "bizerte": [37.2744, 9.8739],
+  "gabès": [33.8815, 10.0982],
+  "gabes": [33.8815, 10.0982],
+  "ariana": [36.8625, 10.1956],
+  "gafsa": [34.4250, 8.7842],
+  "monastir": [35.7643, 10.8113],
+  "ben arous": [36.7533, 10.2189],
+  "kasserine": [35.1676, 8.8365],
+  "médenine": [33.3549, 10.5055],
+  "medenine": [33.3549, 10.5055],
+  "nabeul": [36.4513, 10.7357],
+  "tataouine": [32.9297, 10.4518],
+  "béja": [36.7256, 9.1817],
+  "beja": [36.7256, 9.1817],
+  "jendouba": [36.5011, 8.7803],
+  "mahdia": [35.5047, 11.0622],
+  "siliana": [36.0849, 9.3708],
+  "le kef": [36.1826, 8.7148],
+  "kef": [36.1826, 8.7148],
+  "tozeur": [33.9197, 8.1339],
+  "hammamet": [36.4000, 10.6167],
+  "djerba": [33.8076, 10.8451],
+  "zaghouan": [36.4029, 10.1429],
+  "kébili": [33.7050, 8.9650],
+  "kebili": [33.7050, 8.9650],
+};
+
+async function geocodeLocation(locationName: string): Promise<[number, number] | null> {
+  const normalized = locationName.toLowerCase().trim();
+  if (cityCoordinates[normalized]) return cityCoordinates[normalized];
+  for (const [key, coords] of Object.entries(cityCoordinates)) {
+    if (normalized.includes(key) || key.includes(normalized)) return coords;
+  }
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://fleet-manager-backend-d02b.onrender.com/api" : "http://localhost:8000/api");
+    const res = await fetch(`${apiBase}/geocode/search?q=${encodeURIComponent(locationName)}, Tunisia`);
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+  } catch (e) {
+    console.error("Geocoding error:", e);
+  }
+  return null;
+}
+
 export function MissionForm({ mission, trigger }: MissionFormProps) {
   const [open, setOpen] = useState(false);
   const createMutation = useCreateMission();
@@ -157,6 +215,13 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
         status: isEditing ? data.status : "pending",
         priority: data.priority,
       };
+
+      // Geocode the destination to store coordinates
+      const coords = await geocodeLocation(data.endLocation);
+      if (coords) {
+        submitData.endLat = coords[0];
+        submitData.endLng = coords[1];
+      }
 
       // Add optional fields only if they have values
       if (data.description) submitData.description = data.description;
@@ -244,6 +309,7 @@ export function MissionForm({ mission, trigger }: MissionFormProps) {
                         {drivers?.map((driver) => (
                           <SelectItem key={driver.id} value={driver.id.toString()}>
                             {driver.firstName} {driver.lastName}
+                            {driver.status ? ` — ${driverStatusLabels[driver.status] || driver.status}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
